@@ -5,6 +5,9 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+.gradle-user-home/
+*.log
+
 ### STS ###
 .apt_generated
 .classpath
