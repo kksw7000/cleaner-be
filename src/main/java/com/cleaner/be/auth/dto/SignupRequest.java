@@ -5,16 +5,17 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+/** 회원가입 요청값을 검증합니다. 비밀번호 규칙은 비밀번호 필드에만 적용됩니다. */
 public record SignupRequest(
-	// 요청 본문을 받는 DTO이며, 각 애너테이션이 잘못된 입력을 400으로 차단합니다.
 	@NotBlank @Email @Size(max = 50) String email,
-	@NotBlank @Size(min = 8, max = 30) String password,
+	@NotBlank
+	@Size(min = 8, max = 30)
 	@Pattern(
 		regexp = "^(?=.*[!@#$%^&*(),.?\":{}|<>]).*$",
-		message = "비밀번호는 특수문자를 최소 1개 이상 포함해야 합니다."
+		message = "비밀번호에는 특수문자를 최소 1개 이상 포함해야 합니다."
 	)
+	String password,
 	@NotBlank @Size(max = 30) String name,
-	// 010-1234-5678 또는 01012345678 형식을 받습니다. DB에는 숫자만 저장합니다.
 	@NotBlank @Pattern(regexp = "^01[016789]-?\\d{3,4}-?\\d{4}$") String phoneNumber
 ) {
 }

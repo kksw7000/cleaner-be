@@ -21,4 +21,11 @@ public class ApiExceptionHandler {
 	public Map<String, String> handleDuplicatePhoneNumber() {
 		return Map.of("message", "이미 가입된 휴대폰번호입니다.");
 	}
+
+	/** 이메일 또는 비밀번호가 틀렸을 때 401과 공통 메시지를 반환합니다. */
+	@ExceptionHandler(InvalidCredentialsException.class)
+	@ResponseStatus(HttpStatus.UNAUTHORIZED)
+	public Map<String, String> handleInvalidCredentials() {
+		return Map.of("message", "이메일 또는 비밀번호가 올바르지 않습니다.");
+	}
 }

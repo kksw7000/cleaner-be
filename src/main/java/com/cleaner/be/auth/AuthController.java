@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.cleaner.be.auth.dto.SignupRequest;
 import com.cleaner.be.auth.dto.SignupResponse;
+import com.cleaner.be.auth.dto.LoginRequest;
+import com.cleaner.be.auth.dto.LoginResponse;
 
 import jakarta.validation.Valid;
 
@@ -33,5 +35,9 @@ public class AuthController {
 		return authService.signup(request);
 	}
 
-	
+	/** 이메일(아이디)과 비밀번호를 검증하는 로그인 API입니다. */
+	@PostMapping("/login")
+	public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+		return authService.login(request);
+	}
 }

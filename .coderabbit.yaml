@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: ko-KR
+
+reviews:
+  profile: chill            # 지적 강도. 더 엄격하게 받고 싶으면 assertive
+  high_level_summary: true  # PR 요약 생성
+  poem: false               # 리뷰에 붙는 시(poem) 끄기
+  auto_review:
+    enabled: true
+    drafts: false           # Draft PR은 리뷰 제외
+  path_filters:             # 리뷰 대상에서 제외할 파일
+    - "!**/build/**"
+    - "!**/node_modules/**"
+    - "!**/*.lock"
+  path_instructions:        # 경로별 리뷰 기준
+    - path: "src/main/java/**"
+      instructions: "Spring Boot 기준으로 리뷰해줘. NPE 가능성, 예외 처리, 트랜잭션, 레이어 분리(Controller/Service/Repository)를 중점적으로 봐줘."
+    - path: "src/test/java/**"
+      instructions: "테스트가 정상/실패 케이스를 충분히 다루는지 봐줘."
