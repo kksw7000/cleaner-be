@@ -48,6 +48,11 @@ public class Member {
 		return email;
 	}
 
+	/** 로그인 시 BCrypt 해시 비교에만 사용하며, API 응답에는 노출하지 않습니다. */
+	public String getPassword() {
+		return password;
+	}
+
 	public String getName() {
 		return name;
 	}

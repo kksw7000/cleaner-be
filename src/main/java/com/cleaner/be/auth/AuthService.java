@@ -6,6 +6,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.cleaner.be.auth.dto.SignupRequest;
 import com.cleaner.be.auth.dto.SignupResponse;
+import com.cleaner.be.auth.dto.LoginRequest;
+import com.cleaner.be.auth.dto.LoginResponse;
 
 @Service
 public class AuthService {
@@ -44,5 +46,25 @@ public class AuthService {
 		));
 		// 비밀번호를 응답에 포함하지 않고, 가입에 필요한 공개 정보만 반환합니다.
 		return new SignupResponse(member.getId(), member.getEmail(), member.getName(), member.getPhoneNumber());
+	}
+
+	/**
+	 * 저장된 이메일과 BCrypt 비밀번호 해시를 이용해 로그인 정보를 검증합니다.
+	 * 이메일이 없거나 비밀번호가 틀린 경우에는 같은 예외를 반환해 계정 유추를 막습니다.
+	 */
+	@Transactional(readOnly = true)
+	public LoginResponse login(LoginRequest request) {
+		// 회원가입 때와 같은 방식으로 이메일의 공백과 대소문자 차이를 제거합니다.
+		String email = request.email().trim().toLowerCase();
+		Member member = memberRepository.findByEmail(email)
+			.orElseThrow(InvalidCredentialsException::new);
+
+		// 평문끼리 비교하지 않고, 입력값을 저장된 BCrypt 해시와 안전하게 비교합니다.
+		if (!passwordEncoder.matches(request.password(), member.getPassword())) {
+			throw new InvalidCredentialsException();
+		}
+
+		// 인증에 성공해도 비밀번호(평문·해시 모두)는 클라이언트에 반환하지 않습니다.
+		return new LoginResponse(member.getId(), member.getEmail(), member.getName(), member.getPhoneNumber());
 	}
 }
