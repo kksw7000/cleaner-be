@@ -67,4 +67,10 @@ public class AuthService {
 		// 인증에 성공해도 비밀번호(평문·해시 모두)는 클라이언트에 반환하지 않습니다.
 		return new LoginResponse(member.getId(), member.getEmail(), member.getName(), member.getPhoneNumber());
 	}
+
+	@Transactional(readOnly = true)
+	public Member getMember(Long memberId) {
+		return memberRepository.findById(memberId)
+			.orElseThrow(InvalidCredentialsException::new);
+	}
 }
