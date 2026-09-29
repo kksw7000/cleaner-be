@@ -1,0 +1,23 @@
+spring:
+  config:
+    import:
+      - "optional:file:./.env[.properties]"
+      - "optional:file:./cleaner-be/.env[.properties]"
+  application:
+    name: be
+  datasource:
+    url: jdbc:postgresql://dpg-dah5m8ijnfac738dmuu0-a.virginia-postgres.render.com:5432/cleaner_bxtc
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+# JWT_SECRET must be Base64-encoded and decode to at least 32 bytes.
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-validity: PT30M
+  refresh-token-validity: P14D
+  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:true}
+  refresh-cookie-same-site: ${JWT_REFRESH_COOKIE_SAME_SITE:Strict}
