@@ -1,22 +1,167 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
 language: ko-KR
 
+tone_instructions: >
+  친절하고 이해하기 쉬운 한국어로 리뷰하세요.
+  사소한 취향 차이보다 실제 버그, 유지보수성, 예외 처리, 보안을 우선하세요.
+  초급 개발자도 이해할 수 있도록 문제의 이유와 수정 방향을 짧고 구체적으로 설명하세요.
+  팀 컨벤션 위반은 공격적으로 표현하지 말고, 수정이 필요한 위치와 올바른 예시를 함께 제안하세요.
+
 reviews:
-  profile: chill            # 지적 강도. 더 엄격하게 받고 싶으면 assertive
-  high_level_summary: true  # PR 요약 생성
-  poem: false               # 리뷰에 붙는 시(poem) 끄기
+  profile: chill
+  high_level_summary: true
+  poem: false
+  review_status: true
+  changed_files_summary: true
+  collapse_walkthrough: true
+  request_changes_workflow: false
+
+  auto_title_instructions: >
+    PR 제목은 '타입 : 제목' 형식으로 작성하세요.
+    허용 타입은 feat, add, fix, edit, refactor, design입니다.
+    예: 'feat : 로그인 기능 구현'
+
   auto_review:
     enabled: true
-    drafts: false       # Draft PR은 리뷰 제외
+    drafts: false
     base_branches:
       - dev
       - main
-  path_filters:             # 리뷰 대상에서 제외할 파일
+    ignore_title_keywords:
+      - WIP
+      - DRAFT
+
+  pre_merge_checks:
+    title:
+      mode: warning
+      requirements: >
+        PR 제목은 반드시 '타입 : 제목' 형식을 사용합니다.
+        허용 타입은 feat, add, fix, edit, refactor, design입니다.
+        콜론 앞뒤에는 공백을 하나씩 둡니다.
+        예: 'feat : 회원가입 API 구현'
+    description:
+      mode: warning
+    docstrings:
+      mode: off
+
+  path_filters:
     - "!**/build/**"
-    - "!**/node_modules/**"
+    - "!**/out/**"
+    - "!**/.gradle/**"
+    - "!**/.idea/**"
+    - "!**/generated/**"
+    - "!**/*.class"
+    - "!**/*.jar"
     - "!**/*.lock"
-  path_instructions:        # 경로별 리뷰 기준
-    - path: "src/main/java/**"
-      instructions: "Spring Boot 기준으로 리뷰해줘. NPE 가능성, 예외 처리, 트랜잭션, 레이어 분리(Controller/Service/Repository)를 중점적으로 봐줘."
+
+  path_instructions:
+    - path: "**/*.java"
+      instructions: |
+        Java 17 기준으로 아래 팀 공통 컨벤션을 검토하세요.
+
+        [Java 17 활용]
+        - 단순 데이터 전달용 DTO(요청/응답)는 record 사용을 우선 검토합니다.
+          단, JPA Entity는 record로 만들 수 없으므로 지적하지 않습니다.
+        - 여러 줄 문자열(JSON, SQL 등)은 텍스트 블록(""") 사용을 권장합니다.
+        - switch 문은 fallthrough 위험이 있는 기존 형태보다 switch 표현식(->)을 권장합니다.
+        - instanceof 후 캐스팅은 패턴 매칭(if (o instanceof Foo foo))을 권장합니다.
+        - 스트림 결과 리스트는 collect(Collectors.toList()) 대신 toList()를 사용할 수 있습니다.
+        - Java 17에서 사용할 수 없는 Java 21 기능(가상 스레드, 레코드 패턴, switch 패턴 매칭,
+          getFirst/getLast 같은 SequencedCollection 메서드)이 쓰였다면 지적합니다.
+        - 미리보기(preview) 기능이 사용되었다면 지적합니다.
+
+        [네이밍]
+        - 클래스, 인터페이스, record, enum은 PascalCase를 사용합니다.
+        - 메서드와 변수는 camelCase, 상수는 UPPER_SNAKE_CASE를 사용합니다.
+        - 패키지명은 소문자만 사용합니다. 예: com.cleaner.be.auth
+        - 컨트롤러 이벤트성 메서드는 명확한 동사로 시작합니다. 예: signup, login, getMyInfo
+
+        [기본 품질]
+        - NullPointerException 가능성, Optional 오용(get() 직접 호출, 필드/파라미터로 사용)을 확인합니다.
+        - 예외를 삼키는 빈 catch 블록, 지나치게 넓은 Exception catch를 확인합니다.
+        - 자원 해제 누락(try-with-resources)을 확인합니다.
+        - 비밀번호, 토큰, 개인정보가 로그나 응답에 노출되지 않는지 확인합니다.
+        - 시크릿 값(DB 비밀번호, JWT 키, OAuth 키)이 코드에 하드코딩되지 않았는지 확인합니다.
+        - 단순한 취향 차이나 포매터가 해결할 문제에는 코멘트하지 않습니다.
+
+    - path: "**/*Controller.java"
+      instructions: |
+        컨트롤러 계층을 검토하세요.
+        - 요청 DTO에 @Valid(또는 @Validated)가 적용되어 있는지 확인합니다.
+        - Entity를 직접 반환하지 않고 응답 DTO로 변환하는지 확인합니다.
+        - 비즈니스 로직이 컨트롤러에 들어가 있지 않고 Service에 위임되는지 확인합니다.
+        - HTTP 메서드, URL(kebab-case), 상태 코드가 의도와 일치하는지 확인합니다.
+          예: POST 생성은 201, 삭제는 204
+        - 인증이 필요한 API에서 로그인 사용자 정보를 안전하게 꺼내는지 확인합니다.
+        - 관리자 API(/admin/**)에 ADMIN 권한 검사가 적용되는지 확인합니다.
+        - 예외는 컨트롤러에서 직접 처리하지 않고 GlobalExceptionHandler로 위임하는지 확인합니다.
+
+    - path: "**/*Service.java"
+      instructions: |
+        서비스 계층을 비즈니스 로직과 트랜잭션 관점에서 검토하세요.
+        - 조회 메서드는 @Transactional(readOnly = true), 변경 메서드는 @Transactional이 적용되는지 확인합니다.
+        - 같은 클래스 내부 호출(self-invocation)로 @Transactional이 동작하지 않는 경우를 확인합니다.
+        - 여러 DB 변경이 함께 성공해야 할 때 트랜잭션 누락을 확인합니다.
+        - 없는 데이터 조회 시 Optional.get() 대신 명확한 커스텀 예외를 던지는지 확인합니다.
+        - 중복 가입, 중복 예약 같은 동시성 및 데이터 무결성 문제를 확인합니다.
+        - Controller나 HTTP 계층 객체(HttpServletRequest 등)에 의존하지 않는지 확인합니다.
+
+    - path: "**/*Repository.java"
+      instructions: |
+        Spring Data JPA 관점에서 검토하세요.
+        - N+1 문제 가능성을 확인하고 필요하면 fetch join이나 @EntityGraph를 제안합니다.
+        - 불필요한 전체 조회(findAll)와 페이징 누락을 확인합니다.
+        - 메서드 이름 쿼리가 지나치게 길면 @Query 사용을 제안합니다.
+        - 문자열 연결로 만든 쿼리(SQL 인젝션 위험)가 없는지 확인합니다.
+
+    - path: "**/entity/**"
+      instructions: |
+        JPA Entity를 검토하세요.
+        - 연관관계는 기본적으로 지연 로딩(FetchType.LAZY)인지 확인합니다.
+        - @Setter 남용, 무분별한 public 생성자를 지적하고 의미 있는 변경 메서드를 제안합니다.
+        - equals/hashCode, toString에서 연관관계를 순환 참조하지 않는지 확인합니다.
+        - Enum 필드에 @Enumerated(EnumType.STRING)을 사용하는지 확인합니다.
+        - 생성일과 수정일은 BaseTimeEntity 등 공통 클래스로 관리되는지 확인합니다.
+        - unique, index, nullable 설정이 요구사항과 맞는지 확인합니다.
+
+    - path: "**/dto/**"
+      instructions: |
+        요청/응답 DTO를 검토하세요.
+        - 요청 DTO에 Bean Validation(@NotBlank, @Email, @Size 등)이 요구사항과 맞게 적용되었는지 확인합니다.
+        - 비밀번호 같은 민감 정보가 응답 DTO에 포함되지 않는지 확인합니다.
+        - Entity를 그대로 노출하지 않고 필요한 필드만 담고 있는지 확인합니다.
+        - 불변 객체가 적절하면 record 사용을 제안합니다.
+
+    - path: "**/auth/**"
+      instructions: |
+        인증과 인가 로직을 보안 관점에서 검토하세요.
+        - JWT 생성, 검증, 만료, 리프레시 토큰 처리가 안전한지 확인합니다.
+        - 비밀번호는 반드시 암호화(BCrypt 등)해서 저장하는지 확인합니다.
+        - 소셜 로그인(naver, google, kakao) 콜백에서 state 검증과 토큰 처리가 안전한지 확인합니다.
+        - 로그인 실패 시 계정 존재 여부가 노출되지 않는지 확인합니다.
+        - 인증 실패(401)와 권한 부족(403) 상태 코드가 적절한지 확인합니다.
+
+    - path: "**/common/**"
+      instructions: |
+        공통 설정과 예외 처리를 검토하세요.
+        - GlobalExceptionHandler가 일관된 에러 응답 형식을 사용하는지 확인합니다.
+        - 예외 응답에 스택 트레이스나 내부 정보가 노출되지 않는지 확인합니다.
+        - SecurityConfig의 접근 허용 경로가 필요한 범위로만 열려 있는지 확인합니다.
+        - CORS, CSRF 설정이 의도와 맞는지 확인합니다.
+        - 설정값(시크릿, URL)은 application.yml과 환경 변수로 분리되어 있는지 확인합니다.
+
+    - path: "src/main/resources/**"
+      instructions: |
+        설정 파일을 검토하세요.
+        - DB 비밀번호, JWT 시크릿, OAuth 클라이언트 시크릿이 평문으로 커밋되지 않았는지 확인합니다.
+        - 운영 환경에서 ddl-auto가 create, update로 설정되어 있지 않은지 확인합니다.
+        - 운영 환경에서 show-sql, 디버그 로그가 켜져 있지 않은지 확인합니다.
+
     - path: "src/test/java/**"
-      instructions: "테스트가 정상/실패 케이스를 충분히 다루는지 봐줘."
+      instructions: |
+        JUnit 5와 Mockito 기준으로 검토하세요.
+        - 정상 흐름뿐 아니라 인증 실패, 권한 부족, 잘못된 입력, 데이터 없음 같은 예외 경로가 검증되는지 확인합니다.
+        - 테스트 이름이 무엇을 검증하는지 드러나는지 확인합니다.
+        - 테스트끼리 데이터나 실행 순서에 의존하지 않는지 확인합니다.
+        - 컨트롤러 테스트는 MockMvc 등으로 상태 코드와 응답 본문을 검증하는지 확인합니다.
