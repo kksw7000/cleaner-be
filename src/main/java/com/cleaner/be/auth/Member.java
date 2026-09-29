@@ -20,15 +20,21 @@ public class Member {
 	private String email;
 
 	// BCrypt 해시값을 저장하는 컬럼입니다. 원문 비밀번호를 넣으면 안 됩니다.
-	@Column(nullable = false)
+	@Column
 	private String password;
 
 	@Column(nullable = false, length = 30)
 	private String name;
 
 	// 숫자만 저장한 휴대폰번호입니다. 같은 번호로 중복 가입하지 못하게 합니다.
-	@Column(nullable = false, unique = true, length = 11)
+	@Column(unique = true, length = 11)
 	private String phoneNumber;
+
+	@Column(length = 30)
+	private String oauthProvider;
+
+	@Column(length = 100)
+	private String oauthProviderUserId;
 
 	protected Member() {
 	}
@@ -38,6 +44,15 @@ public class Member {
 		this.password = password;
 		this.name = name;
 		this.phoneNumber = phoneNumber;
+	}
+
+	static Member fromOAuth(String email, String name, String oauthProvider, String oauthProviderUserId) {
+		Member member = new Member();
+		member.email = email;
+		member.name = name;
+		member.oauthProvider = oauthProvider;
+		member.oauthProviderUserId = oauthProviderUserId;
+		return member;
 	}
 
 	public Long getId() {
@@ -59,5 +74,13 @@ public class Member {
 
 	public String getPhoneNumber() {
 		return phoneNumber;
+	}
+
+	public String getOauthProvider() {
+		return oauthProvider;
+	}
+
+	public String getOauthProviderUserId() {
+		return oauthProviderUserId;
 	}
 }
