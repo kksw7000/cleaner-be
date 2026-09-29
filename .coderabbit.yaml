@@ -7,7 +7,7 @@ reviews:
   poem: false               # 리뷰에 붙는 시(poem) 끄기
   auto_review:
     enabled: true
-    drafts: falsev        # Draft PR은 리뷰 제외
+    drafts: false       # Draft PR은 리뷰 제외
     base_branches:
       - dev
       - main
