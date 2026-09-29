@@ -7,7 +7,10 @@ reviews:
   poem: false               # 리뷰에 붙는 시(poem) 끄기
   auto_review:
     enabled: true
-    drafts: false           # Draft PR은 리뷰 제외
+    drafts: false
+    base_branches:
+      - dev
+      - main           # Draft PR은 리뷰 제외
   path_filters:             # 리뷰 대상에서 제외할 파일
     - "!**/build/**"
     - "!**/node_modules/**"
