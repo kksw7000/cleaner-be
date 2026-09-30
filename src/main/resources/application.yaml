@@ -11,7 +11,7 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
 
 # JWT_SECRET must be Base64-encoded and decode to at least 32 bytes.
