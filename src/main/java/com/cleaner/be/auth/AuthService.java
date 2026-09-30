@@ -68,6 +68,10 @@ public class AuthService {
 		return new LoginResponse(member.getId(), member.getEmail(), member.getName(), member.getPhoneNumber());
 	}
 
+	/**
+	 * 로그인 또는 Refresh Token 갱신 과정에서 확인된 회원 ID로 회원 정보를 조회합니다.
+	 * 토큰을 추출하거나 아이디를 찾는 메서드는 아니며, 존재하지 않는 회원이면 인증 실패로 처리합니다.
+	 */
 	@Transactional(readOnly = true)
 	public Member getMember(Long memberId) {
 		return memberRepository.findById(memberId)

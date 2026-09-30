@@ -1,17 +1,17 @@
 package com.cleaner.be.auth;
 
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.CookieValue;
 
 import com.cleaner.be.auth.dto.LoginRequest;
 import com.cleaner.be.auth.dto.OAuthLoginRequest;
@@ -23,6 +23,11 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
+/**
+ * 인증 요청의 시작점입니다.
+ * 로그인과 소셜 로그인은 토큰을 발급해 응답하고, 토큰 갱신과 로그아웃은 Refresh Token 쿠키를 사용합니다.
+ * Access Token은 응답 본문으로, Refresh Token은 JavaScript에서 읽을 수 없는 HTTP 전용 쿠키로 분리합니다.
+ */
 public class AuthController {
 
 	private final AuthService authService;
@@ -32,8 +37,8 @@ public class AuthController {
 	private final String refreshCookieSameSite;
 
 	public AuthController(AuthService authService, OAuthService oauthService, JwtTokenProvider jwtTokenProvider,
-		@Value("${jwt.refresh-cookie-secure:true}") boolean refreshCookieSecure,
-		@Value("${jwt.refresh-cookie-same-site:Strict}") String refreshCookieSameSite) {
+		@Value("${jwt.refresh-cookie-secure}") boolean refreshCookieSecure,
+		@Value("${jwt.refresh-cookie-same-site}") String refreshCookieSameSite) {
 		this.authService = authService;
 		this.oauthService = oauthService;
 		this.jwtTokenProvider = jwtTokenProvider;
@@ -48,6 +53,10 @@ public class AuthController {
 	}
 
 	@PostMapping("/login")
+	/**
+	 * 이메일/비밀번호 로그인 흐름입니다.
+	 * 요청값 검증 → 회원 인증 → Access/Refresh Token 발급 → Access Token 응답 및 Refresh Token 쿠키 설정 순으로 처리합니다.
+	 */
 	public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
 		Long memberId = authService.login(request).id();
 		return tokenResponse(jwtTokenProvider.issueTokens(authService.getMember(memberId)));
@@ -59,6 +68,10 @@ public class AuthController {
 	}
 
 	@PostMapping("/refresh")
+	/**
+	 * Access Token이 만료됐을 때 브라우저가 자동 전송한 Refresh Token 쿠키로 토큰을 갱신합니다.
+	 * Refresh Token도 함께 교체해, 탈취된 이전 토큰을 장기간 재사용할 위험을 줄입니다.
+	 */
 	public ResponseEntity<TokenResponse> refresh(@CookieValue(name = "refresh_token", required = false) String refreshToken) {
 		if (refreshToken == null || !jwtTokenProvider.isValidRefreshToken(refreshToken)) {
 			throw new InvalidCredentialsException();
@@ -68,6 +81,10 @@ public class AuthController {
 
 	@PostMapping("/logout")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
+	/**
+	 * 서버가 세션을 저장하지 않는 JWT 방식의 로그아웃 처리입니다.
+	 * Refresh Token 쿠키의 만료 시간을 0으로 내려 브라우저에서 제거하고, 클라이언트는 응답 후 localStorage의 Access Token을 삭제해야 합니다.
+	 */
 	public ResponseEntity<Void> logout() {
 		ResponseCookie expiredCookie = ResponseCookie.from("refresh_token", "")
 			.httpOnly(true).secure(refreshCookieSecure).sameSite(refreshCookieSameSite).path("/api/auth").maxAge(0).build();
@@ -75,6 +92,7 @@ public class AuthController {
 	}
 
 	private ResponseEntity<TokenResponse> tokenResponse(IssuedTokens tokens) {
+		// Refresh Token은 XSS로부터 보호하기 위해 응답 본문이 아닌 HTTP 전용 쿠키로만 전달합니다.
 		ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", tokens.refreshToken())
 			.httpOnly(true).secure(refreshCookieSecure).sameSite(refreshCookieSameSite).path("/api/auth")
 			.maxAge(jwtTokenProvider.getRefreshTokenValiditySeconds()).build();
