@@ -6,7 +6,7 @@ spring:
   application:
     name: be
   datasource:
-    url: jdbc:postgresql://dpg-dah5m8ijnfac738dmuu0-a.virginia-postgres.render.com:5432/cleaner_bxtc
+    url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   jpa:
@@ -19,5 +19,5 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-validity: PT30M
   refresh-token-validity: P14D
-  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:true}
-  refresh-cookie-same-site: ${JWT_REFRESH_COOKIE_SAME_SITE:Strict}
+  refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE}
+  refresh-cookie-same-site: ${JWT_REFRESH_COOKIE_SAME_SITE}
