@@ -16,7 +16,10 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
-/** 서명된 Access Token 및 Refresh Token JWT를 생성하고 검증합니다. */
+/**
+ * JWT의 생성과 서명 검증을 전담합니다.
+ * Controller와 Filter가 같은 서명 키와 검증 규칙을 사용하도록 토큰 관련 처리를 이 클래스에 모읍니다.
+ */
 @Component
 public class JwtTokenProvider {
 
@@ -39,6 +42,7 @@ public class JwtTokenProvider {
 	}
 
 	public IssuedTokens issueTokens(Member member) {
+		// 한 번의 로그인 또는 갱신 요청에서 짧은 수명의 Access Token과 긴 수명의 Refresh Token을 함께 발급합니다.
 		String accessToken = createToken(member, "access", accessTokenValidity);
 		String refreshToken = createToken(member, "refresh", refreshTokenValidity);
 		return new IssuedTokens(new TokenResponse(accessToken, "Bearer", accessTokenValidity.toSeconds()), refreshToken);
@@ -66,17 +70,21 @@ public class JwtTokenProvider {
 
 	private boolean hasType(String token, String type) {
 		try {
+			// 서명과 만료 시간을 먼저 검증한 뒤, 용도(type)가 요청한 토큰과 일치하는지도 확인합니다.
 			return type.equals(parse(token).get("type", String.class));
 		} catch (RuntimeException exception) {
 			return false;
 		}
 	}
 
+
+	//우리가 만든 JWT 토큰인지 아닌지 확인하는 로직
 	private Claims parse(String token) {
 		return Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(token).getPayload();
 	}
 
 	private String createToken(Member member, String type, Duration validity) {
+		// 토큰 자체에는 비밀번호 대신 회원 식별자와 최소한의 식별 정보만 담아, 이후 요청에서 회원을 식별합니다.
 		Instant now = Instant.now();
 		return Jwts.builder()
 			.subject(member.getId().toString())
