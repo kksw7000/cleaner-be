@@ -83,4 +83,22 @@ public class Member {
 	public String getOauthProviderUserId() {
 		return oauthProviderUserId;
 	}
+
+	/**
+	 * 마이페이지에서 본인이 수정한 공개 프로필만 반영합니다.
+	 * 비밀번호와 소셜 로그인 연결 정보는 별도의 보안 절차가 필요한 값이므로 이 메서드에서 변경하지 않습니다.
+	 */
+	public void updateProfile(String email, String name, String phoneNumber) {
+		this.email = email;
+		this.name = name;
+		this.phoneNumber = phoneNumber;
+	}
+
+	/**
+	 * 현재 비밀번호 검증을 통과하고 BCrypt 해시로 변환된 값만 저장합니다.
+	 * 원문 비밀번호를 엔티티에 전달하거나 저장하는 경로를 만들지 않기 위해 해시값만 받습니다.
+	 */
+	public void updatePassword(String encodedPassword) {
+		this.password = encodedPassword;
+	}
 }

@@ -29,4 +29,11 @@ public class ApiExceptionHandler {
 	public Map<String, String> handleInvalidCredentials() {
 		return Map.of("message", "이메일 또는 비밀번호가 올바르지 않습니다.");
 	}
+
+	/** 인증된 회원이 비밀번호 변경 시 현재 비밀번호를 잘못 입력한 경우의 응답입니다. */
+	@ExceptionHandler(InvalidCurrentPasswordException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public Map<String, String> handleInvalidCurrentPassword() {
+		return Map.of("message", "현재 비밀번호가 올바르지 않습니다.");
+	}
 }
