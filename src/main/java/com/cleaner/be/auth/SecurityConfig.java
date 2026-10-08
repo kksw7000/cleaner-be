@@ -18,7 +18,6 @@ public class SecurityConfig {
 
 	@Bean
 	// Spring이 리플렉션으로 Bean을 등록하므로 Java 언어 서버의 사용되지 않음 경고를 억제합니다.
-	// @SuppressWarnings("unused")
 	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
 		return http
 			.csrf(csrf -> csrf.disable())
