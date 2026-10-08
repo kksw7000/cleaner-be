@@ -24,9 +24,11 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtTokenProvider jwtTokenProvider;
+	private final MemberRepository memberRepository;
 
-	public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
+	public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, MemberRepository memberRepository) {
 		this.jwtTokenProvider = jwtTokenProvider;
+		this.memberRepository = memberRepository;
 	}
 
 	@Override
@@ -47,6 +49,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		}
 
 		Long memberId = jwtTokenProvider.getMemberId(token);
+		// 탈퇴된 계정의 기존 토큰이 보호 API에 접근하지 못하도록 회원 존재 여부를 함께 확인합니다.
+		if (!memberRepository.existsById(memberId)) {
+			response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid or expired access token");
+			return;
+		}
+
 		// 요청 처리 동안만 유지되는 SecurityContext에 회원 ID를 넣으며, 서버 세션에는 저장하지 않습니다.
 		UsernamePasswordAuthenticationToken authentication =
 			new UsernamePasswordAuthenticationToken(memberId, null, List.of());

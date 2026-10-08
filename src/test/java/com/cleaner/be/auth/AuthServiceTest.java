@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.cleaner.be.auth.dto.LoginRequest;
 import com.cleaner.be.auth.dto.LoginResponse;
 import com.cleaner.be.auth.dto.SignupRequest;
+import com.cleaner.be.auth.dto.SignupResponse;
 
 @SpringBootTest
 @Transactional
@@ -36,6 +37,18 @@ class AuthServiceTest {
 		authService.signup(new SignupRequest("wrong-password@example.com", "Password!1", "테스트 사용자", "010-9876-5432"));
 
 		assertThatThrownBy(() -> authService.login(new LoginRequest("wrong-password@example.com", "WrongPass!1")))
+			.isInstanceOf(InvalidCredentialsException.class);
+	}
+
+	@Test
+	void 회원탈퇴후_로그인은_실패한다() {
+		SignupResponse signupResponse = authService.signup(
+			new SignupRequest("withdraw@example.com", "Password!1", "탈퇴 사용자", "010-1111-2222"));
+
+		authService.withdraw(signupResponse.id());
+
+		assertThatThrownBy(() -> authService.login(
+			new LoginRequest("withdraw@example.com", "Password!1")))
 			.isInstanceOf(InvalidCredentialsException.class);
 	}
 }
