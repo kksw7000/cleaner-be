@@ -77,4 +77,15 @@ public class AuthService {
 		return memberRepository.findById(memberId)
 			.orElseThrow(InvalidCredentialsException::new);
 	}
+
+	/**
+	 * 인증된 사용자가 자신의 계정을 탈퇴할 때 호출됩니다.
+	 * 회원을 즉시 삭제해 로그인과 새 토큰 발급을 차단하며, 삭제 대상이 없으면 인증 실패로 처리합니다.
+	 */
+	@Transactional
+	public void withdraw(Long memberId) {
+		Member member = memberRepository.findById(memberId)
+			.orElseThrow(InvalidCredentialsException::new);
+		memberRepository.delete(member);
+	}
 }

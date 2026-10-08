@@ -5,7 +5,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -89,6 +92,22 @@ public class AuthController {
 		ResponseCookie expiredCookie = ResponseCookie.from("refresh_token", "")
 			.httpOnly(true).secure(refreshCookieSecure).sameSite(refreshCookieSameSite).path("/api/auth").maxAge(0).build();
 		return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, expiredCookie.toString()).build();
+	}
+
+	/**
+	 * JWT 필터가 남긴 SecurityContext의 회원 ID를 사용해 현재 사용자의 계정을 삭제합니다.
+	 * 다른 사용자의 ID를 전달할 수 없으며, 성공 시 204 응답을 반환합니다.
+	 */
+	@DeleteMapping("/withdraw")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public ResponseEntity<Void> withdraw() {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		if (authentication == null || authentication.getPrincipal() == null) {
+			throw new InvalidCredentialsException();
+		}
+		Long memberId = ((Number) authentication.getPrincipal()).longValue();
+		authService.withdraw(memberId);
+		return ResponseEntity.noContent().build();
 	}
 
 	private ResponseEntity<TokenResponse> tokenResponse(IssuedTokens tokens) {
