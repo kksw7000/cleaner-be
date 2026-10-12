@@ -14,7 +14,7 @@ public class ApiExceptionHandler {
 	@ExceptionHandler(DuplicateEmailException.class)
 	@ResponseStatus(HttpStatus.CONFLICT)
 	public Map<String, String> handleDuplicateEmail() {
-		return Map.of("message", "이미 가입된 이메일입니다.");
+		return Map.of("message", "중복된 아이디입니다.");
 	}
 
 	@ExceptionHandler(DuplicatePhoneNumberException.class)
