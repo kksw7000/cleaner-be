@@ -6,14 +6,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.cleaner.be.admin.dto.AdminCommentPageResponse;
-import com.cleaner.be.admin.dto.AdminCommentResponse;
 import com.cleaner.be.admin.dto.AdminMemberPageResponse;
 import com.cleaner.be.admin.dto.AdminMemberResponse;
 import com.cleaner.be.auth.AuthService;
 import com.cleaner.be.auth.Member;
 import com.cleaner.be.board.BoardService;
-import com.cleaner.be.board.Comment;
 import com.cleaner.be.board.dto.BoardPageResponse;
 
 /**
@@ -46,13 +43,6 @@ public class AdminService {
 		boardService.deleteBoard(boardId, adminId);
 	}
 
-	@Transactional(readOnly = true)
-	public AdminCommentPageResponse getComments(int page, int size) {
-		Page<Comment> comments = boardService.getAllComments(page, size);
-		return new AdminCommentPageResponse(comments.map(this::toCommentResponse).getContent(), comments.getNumber(),
-			comments.getSize(), comments.getTotalElements(), comments.getTotalPages(), comments.isFirst(), comments.isLast());
-	}
-
 	@Transactional
 	public void deleteComment(Long commentId, Long adminId) {
 		boardService.deleteCommentByAdmin(commentId, adminId);
@@ -68,11 +58,6 @@ public class AdminService {
 	@Transactional
 	public AdminMemberResponse updateMemberSuspension(Long memberId, boolean suspended) {
 		return toMemberResponse(authService.updateMemberSuspension(memberId, suspended));
-	}
-
-	private AdminCommentResponse toCommentResponse(Comment comment) {
-		return new AdminCommentResponse(comment.getId(), comment.getBoard().getId(), comment.getContent(),
-			comment.getAuthor().getId(), comment.getAuthor().getName(), comment.getCreatedAt(), comment.getUpdatedAt());
 	}
 
 	private AdminMemberResponse toMemberResponse(Member member) {

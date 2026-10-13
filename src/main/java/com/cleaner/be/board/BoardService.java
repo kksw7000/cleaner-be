@@ -103,12 +103,6 @@ public class BoardService {
 		board.update(board.getTitle(), board.getContent(), notice);
 	}
 
-	/** 관리자 댓글 목록은 작성자·원문 게시글을 함께 조회해 별도 도메인 조회 로직을 만들지 않습니다. */
-	@Transactional(readOnly = true)
-	public Page<Comment> getAllComments(int page, int size) {
-		return commentRepository.findAll(PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"))));
-	}
-
 	/** URL에 게시글 ID가 없는 관리자 강제 삭제도 기존 댓글 삭제 규칙과 같은 저장소를 사용합니다. */
 	@Transactional
 	public void deleteCommentByAdmin(Long commentId, Long memberId) {
