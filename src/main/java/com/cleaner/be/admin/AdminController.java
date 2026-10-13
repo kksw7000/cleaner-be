@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.cleaner.be.admin.dto.AdminCommentPageResponse;
 import com.cleaner.be.admin.dto.AdminMemberPageResponse;
 import com.cleaner.be.admin.dto.AdminMemberResponse;
 import com.cleaner.be.admin.dto.MemberSuspensionRequest;
@@ -54,12 +53,6 @@ public class AdminController {
 	public ResponseEntity<Void> deleteBoard(@PathVariable Long id) {
 		adminService.deleteBoard(id, currentMemberId());
 		return ResponseEntity.noContent().build();
-	}
-
-	@GetMapping("/comments")
-	public AdminCommentPageResponse getComments(@RequestParam(defaultValue = "0") @Min(0) int page,
-		@RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
-		return adminService.getComments(page, size);
 	}
 
 	@DeleteMapping("/comments/{commentId}")
