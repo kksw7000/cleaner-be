@@ -3,6 +3,8 @@ package com.cleaner.be.auth;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import com.cleaner.be.auth.dto.SignupRequest;
 import com.cleaner.be.auth.dto.SignupResponse;
@@ -63,6 +65,7 @@ public class AuthService {
 		if (!passwordEncoder.matches(request.password(), member.getPassword())) {
 			throw new InvalidCredentialsException();
 		}
+		validateNotSuspended(member);
 
 		// 인증에 성공해도 비밀번호(평문·해시 모두)는 클라이언트에 반환하지 않습니다.
 		return new LoginResponse(member.getId(), member.getEmail(), member.getName(), member.getPhoneNumber());
@@ -74,8 +77,25 @@ public class AuthService {
 	 */
 	@Transactional(readOnly = true)
 	public Member getMember(Long memberId) {
-		return memberRepository.findById(memberId)
+		Member member = memberRepository.findById(memberId)
 			.orElseThrow(InvalidCredentialsException::new);
+		validateNotSuspended(member);
+		return member;
+	}
+
+	/** 관리자 목록 화면이 회원 엔티티를 직접 조회하지 않도록 공통 회원 조회를 제공합니다. */
+	@Transactional(readOnly = true)
+	public Page<Member> getMembers(Pageable pageable) {
+		return memberRepository.findAll(pageable);
+	}
+
+	/** 관리자 요청으로만 호출되며, 상태 변경 후 JWT 필터가 다음 요청부터 즉시 차단합니다. */
+	@Transactional
+	public Member updateMemberSuspension(Long memberId, boolean suspended) {
+		Member member = memberRepository.findById(memberId)
+			.orElseThrow(InvalidCredentialsException::new);
+		member.updateSuspension(suspended);
+		return member;
 	}
 
 	/**
@@ -87,5 +107,11 @@ public class AuthService {
 		Member member = memberRepository.findById(memberId)
 			.orElseThrow(InvalidCredentialsException::new);
 		memberRepository.delete(member);
+	}
+
+	private void validateNotSuspended(Member member) {
+		if (member.isSuspended()) {
+			throw new SuspendedMemberException();
+		}
 	}
 }

@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -50,14 +51,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 		Long memberId = jwtTokenProvider.getMemberId(token);
 		// 탈퇴된 계정의 기존 토큰이 보호 API에 접근하지 못하도록 회원 존재 여부를 함께 확인합니다.
-		if (!memberRepository.existsById(memberId)) {
+		Member member = memberRepository.findById(memberId).orElse(null);
+		if (member == null) {
 			response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid or expired access token");
+			return;
+		}
+		// 이미 발급된 토큰도 DB의 최신 정지 상태를 확인해 글 작성 등 보호 API를 즉시 차단합니다.
+		if (member.isSuspended()) {
+			response.sendError(HttpStatus.FORBIDDEN.value(), "Suspended member");
 			return;
 		}
 
 		// 요청 처리 동안만 유지되는 SecurityContext에 회원 ID를 넣으며, 서버 세션에는 저장하지 않습니다.
 		UsernamePasswordAuthenticationToken authentication =
-			new UsernamePasswordAuthenticationToken(memberId, null, List.of());
+			new UsernamePasswordAuthenticationToken(memberId, null,
+				List.of(new SimpleGrantedAuthority("ROLE_" + member.getRole().name())));
 		authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 		SecurityContextHolder.getContext().setAuthentication(authentication);
 		filterChain.doFilter(request, response);

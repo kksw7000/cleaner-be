@@ -36,6 +36,15 @@ public class Member {
 	@Column(length = 100)
 	private String oauthProviderUserId;
 
+	// 게시판을 포함한 도메인별 권한 판단이 같은 기준을 사용하도록 회원에 역할을 보관합니다.
+	@Column(nullable = false, length = 20)
+	@jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+	private Role role = Role.USER;
+
+	// 정지 상태는 기존 Access Token을 가진 회원도 다음 요청에서 즉시 차단하기 위해 회원 정보에 보관합니다.
+	@Column(nullable = false)
+	private boolean suspended;
+
 	protected Member() {
 	}
 
@@ -82,6 +91,19 @@ public class Member {
 
 	public String getOauthProviderUserId() {
 		return oauthProviderUserId;
+	}
+
+	public Role getRole() {
+		return role;
+	}
+
+	public boolean isSuspended() {
+		return suspended;
+	}
+
+	/** 관리자가 계정을 정지 또는 해제할 때만 호출해 인증 흐름이 단일 상태 값을 확인하도록 합니다. */
+	public void updateSuspension(boolean suspended) {
+		this.suspended = suspended;
 	}
 
 	/**
