@@ -34,6 +34,9 @@ public class OAuthService {
 			.or(() -> memberRepository.findByEmail(normalizedEmail))
 			.orElseGet(() -> memberRepository.save(Member.fromOAuth(normalizedEmail, userInfo.name().trim(), normalizedProvider,
 				userInfo.providerUserId())));
+		if (member.isSuspended()) {
+			throw new SuspendedMemberException();
+		}
 		return jwtTokenProvider.issueTokens(member);
 	}
 
