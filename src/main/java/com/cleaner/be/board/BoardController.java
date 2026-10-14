@@ -41,12 +41,14 @@ public class BoardController {
 		this.boardService = boardService;
 	}
 
+	/** 검증된 요청 값을 서비스에 전달해 로그인 회원의 게시글을 생성합니다. */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public BoardResponse createBoard(@Valid @RequestBody BoardCreateRequest request) {
 		return boardService.createBoard(currentMemberId(), request);
 	}
 
+	/** 페이지와 선택적 검색어로 게시글 목록을 조회합니다. */
 	@GetMapping
 	public BoardPageResponse getBoards(
 		@RequestParam(defaultValue = "0") @Min(0) int page,
@@ -55,40 +57,47 @@ public class BoardController {
 		return boardService.getBoards(page, size, keyword);
 	}
 
+	/** 게시글 상세 정보와 댓글을 조회합니다. */
 	@GetMapping("/{id}")
 	public BoardResponse getBoard(@PathVariable Long id) {
 		return boardService.getBoard(id);
 	}
 
+	/** 로그인 회원의 권한을 확인하며 게시글을 수정합니다. */
 	@PatchMapping("/{id}")
 	public BoardResponse updateBoard(@PathVariable Long id, @Valid @RequestBody BoardUpdateRequest request) {
 		return boardService.updateBoard(id, currentMemberId(), request);
 	}
 
+	/** 게시글을 삭제하고 성공 시 본문 없는 응답을 반환합니다. */
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteBoard(@PathVariable Long id) {
 		boardService.deleteBoard(id, currentMemberId());
 		return ResponseEntity.noContent().build();
 	}
 
+	/** 지정한 게시글에 로그인 회원의 댓글을 추가합니다. */
 	@PostMapping("/{id}/comments")
 	@ResponseStatus(HttpStatus.CREATED)
 	public CommentResponse createComment(@PathVariable Long id, @Valid @RequestBody CommentCreateRequest request) {
 		return boardService.createComment(id, currentMemberId(), request);
 	}
 
+	/** 댓글 작성 권한을 확인하며 댓글 내용을 수정합니다. */
 	@PatchMapping("/{id}/comments/{commentId}")
 	public CommentResponse updateComment(@PathVariable Long id, @PathVariable Long commentId,
 		@Valid @RequestBody CommentUpdateRequest request) {
 		return boardService.updateComment(id, commentId, currentMemberId(), request);
 	}
 
+	/** 지정한 게시글에 속한 댓글을 삭제합니다. */
 	@DeleteMapping("/{id}/comments/{commentId}")
 	public ResponseEntity<Void> deleteComment(@PathVariable Long id, @PathVariable Long commentId) {
 		boardService.deleteComment(id, commentId, currentMemberId());
 		return ResponseEntity.noContent().build();
 	}
 
+	/** 인증 필터가 SecurityContext에 저장한 회원 ID를 읽고, 없으면 인증 오류로 처리합니다. */
 	private Long currentMemberId() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		if (authentication == null || !(authentication.getPrincipal() instanceof Number memberId)) {
