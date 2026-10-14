@@ -121,6 +121,7 @@ public class BoardService {
 		return toCommentResponse(comment);
 	}
 
+	/** 게시글 소속과 댓글 작성자를 확인한 뒤 댓글 내용을 변경합니다. */
 	@Transactional
 	public CommentResponse updateComment(Long boardId, Long commentId, Long memberId, CommentUpdateRequest request) {
 		Comment comment = findCommentInBoard(boardId, commentId);
@@ -139,14 +140,17 @@ public class BoardService {
 		commentRepository.delete(comment);
 	}
 
+	/** 존재하지 않는 게시글 ID는 게시글 전용 예외로 변환합니다. */
 	private Board findBoard(Long boardId) {
 		return boardRepository.findById(boardId).orElseThrow(BoardNotFoundException::new);
 	}
 
+	/** 회원이 탈퇴했거나 잘못된 ID인 경우 권한 오류로 처리합니다. */
 	private Member findMember(Long memberId) {
 		return memberRepository.findById(memberId).orElseThrow(BoardAccessDeniedException::new);
 	}
 
+	/** 댓글 ID뿐 아니라 URL의 게시글 ID와 실제 소속 게시글도 일치하는지 확인합니다. */
 	private Comment findCommentInBoard(Long boardId, Long commentId) {
 		Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
 		if (!comment.getBoard().getId().equals(boardId)) {
@@ -155,40 +159,47 @@ public class BoardService {
 		return comment;
 	}
 
+	/** 공지로 지정하는 요청은 관리자에게만 허용합니다. */
 	private void validateNoticePermission(Member member, boolean notice) {
 		if (notice && member.getRole() != Role.ADMIN) {
 			throw new BoardAccessDeniedException();
 		}
 	}
 
+	/** 수정 작업의 대상 작성자와 요청 회원이 같은지 검사합니다. */
 	private void validateAuthor(Member author, Member member, RuntimeException exception) {
 		if (!author.getId().equals(member.getId())) {
 			throw exception;
 		}
 	}
 
+	/** 삭제는 작성자와 관리자에게 허용하고, 그 외 회원은 거부합니다. */
 	private void validateDeletePermission(Member author, Member member, RuntimeException exception) {
 		if (!author.getId().equals(member.getId()) && member.getRole() != Role.ADMIN) {
 			throw exception;
 		}
 	}
 
+	/** 관리자 전용 작업을 실행하기 전에 역할을 확인합니다. */
 	private void validateAdmin(Member member) {
 		if (member.getRole() != Role.ADMIN) {
 			throw new BoardAccessDeniedException();
 		}
 	}
 
+	/** 목록 화면에 필요한 게시글 요약 정보만 응답 DTO로 옮깁니다. */
 	private BoardListResponse toBoardListResponse(Board board) {
 		return new BoardListResponse(board.getId(), board.getTitle(), board.isNotice(), board.getAuthor().getId(),
 			board.getAuthor().getName(), board.getViewCount(), board.getCreatedAt());
 	}
 
+	/** 게시글 상세 정보와 이미 조회한 댓글 목록을 응답 DTO로 구성합니다. */
 	private BoardResponse toBoardResponse(Board board, List<CommentResponse> comments) {
 		return new BoardResponse(board.getId(), board.getTitle(), board.getContent(), board.getViewCount(), board.isNotice(),
 			board.getAuthor().getId(), board.getAuthor().getName(), board.getCreatedAt(), board.getUpdatedAt(), comments);
 	}
 
+	/** 댓글 엔티티의 작성자와 작성·수정 시각을 API 응답 형태로 변환합니다. */
 	private CommentResponse toCommentResponse(Comment comment) {
 		return new CommentResponse(comment.getId(), comment.getContent(), comment.getAuthor().getId(),
 			comment.getAuthor().getName(), comment.getCreatedAt(), comment.getUpdatedAt());
