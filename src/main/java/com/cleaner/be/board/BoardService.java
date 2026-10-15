@@ -46,7 +46,7 @@ public class BoardService {
 		return toBoardResponse(board, List.of());
 	}
 
-	/** 공지를 우선 배치한 뒤 최신 작성순으로 목록을 반환하고, 키워드가 있으면 제목·본문을 함께 검색합니다. */
+	/** 공지를 우선 배치한 뒤 최신 작성순으로 목록을 반환하고, 키워드가 있으면 제목을 검색합니다. */
 	@Transactional(readOnly = true)
 	public BoardPageResponse getBoards(int page, int size, String keyword) {
 		PageRequest pageRequest = PageRequest.of(page, size, Sort.by(
@@ -54,8 +54,7 @@ public class BoardService {
 		String normalizedKeyword = keyword == null ? "" : keyword.trim();
 		Page<Board> boards = normalizedKeyword.isEmpty()
 			? boardRepository.findAll(pageRequest)
-			: boardRepository.findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(
-				normalizedKeyword, normalizedKeyword, pageRequest);
+			: boardRepository.findByTitleContainingIgnoreCase(normalizedKeyword, pageRequest);
 
 		return new BoardPageResponse(
 			boards.map(this::toBoardListResponse).getContent(), boards.getNumber(), boards.getSize(),
