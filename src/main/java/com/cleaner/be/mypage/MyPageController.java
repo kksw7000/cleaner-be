@@ -66,5 +66,5 @@ public class MyPageController {
 		}
 
 		return memberId.longValue();
-	}
+	}           
 }
