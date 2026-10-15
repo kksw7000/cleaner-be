@@ -37,18 +37,20 @@ public class BoardService {
 		this.memberRepository = memberRepository;
 	}
 
-	/** 로그인 회원을 작성자로 연결해 게시글을 만들고, 공지 여부는 ADMIN만 지정하도록 제한합니다. */
+	/** 인증된 회원을 작성자로 연결해 게시글을 저장하고, 공지로 지정할 때는 관리자 권한을 확인합니다. */
 	@Transactional
 	public BoardResponse createBoard(Long memberId, BoardCreateRequest request) {
+		// 회원 조회 → 공지 권한 확인 → 게시글 저장 및 응답 변환 순서로 처리합니다.
 		Member author = findMember(memberId);
 		validateNoticePermission(author, request.notice());
 		Board board = boardRepository.save(new Board(request.title().trim(), request.content().trim(), request.notice(), author));
 		return toBoardResponse(board, List.of());
 	}
 
-	/** 공지를 우선 배치한 뒤 최신 작성순으로 목록을 반환하고, 키워드가 있으면 제목을 검색합니다. */
+	/** 공지를 먼저 보여주고 최신순으로 정렬해 페이지를 반환하며, 키워드가 있으면 제목만 검색해 목록 범위를 제한합니다. */
 	@Transactional(readOnly = true)
 	public BoardPageResponse getBoards(int page, int size, String keyword) {
+		// 정렬·페이지 조건 생성 → 키워드 정리 → 제목 검색 또는 전체 조회 → 페이지 응답 변환 순서로 처리합니다.
 		PageRequest pageRequest = PageRequest.of(page, size, Sort.by(
 			Sort.Order.desc("notice"), Sort.Order.desc("createdAt")));
 		String normalizedKeyword = keyword == null ? "" : keyword.trim();
@@ -61,9 +63,10 @@ public class BoardService {
 			boards.getTotalElements(), boards.getTotalPages(), boards.isFirst(), boards.isLast());
 	}
 
-	/** 공개 상세 조회에서만 조회수를 증가시키고, 댓글은 작성 시간순 DTO 목록으로 함께 제공합니다. */
+	/** 게시글 상세 정보와 시간순 댓글을 함께 제공하고, 조회 요청마다 조회수를 반영해 열람 횟수를 기록합니다. */
 	@Transactional
 	public BoardResponse getBoard(Long boardId) {
+		// 게시글 조회 → 조회수 증가 → 댓글 조회 및 응답 변환 순서로 처리합니다.
 		Board board = findBoard(boardId);
 		board.increaseViewCount();
 		List<CommentResponse> comments = commentRepository.findByBoardIdOrderByCreatedAtAsc(boardId).stream()
@@ -71,9 +74,10 @@ public class BoardService {
 		return toBoardResponse(board, comments);
 	}
 
-	/** 작성자만 본문을 수정할 수 있으며, 공지 상태를 켜거나 유지하는 요청은 ADMIN인지도 확인합니다. */
+	/** 게시글 작성자만 내용을 수정할 수 있고, 공지로 지정하는 경우에는 관리자 권한도 확인해 일반 회원의 공지 등록을 막습니다. */
 	@Transactional
 	public BoardResponse updateBoard(Long boardId, Long memberId, BoardUpdateRequest request) {
+		// 게시글·회원 조회 → 작성자와 공지 권한 확인 → 내용 수정 → 댓글을 포함한 응답 변환 순서로 처리합니다.
 		Board board = findBoard(boardId);
 		Member member = findMember(memberId);
 		validateAuthor(board.getAuthor(), member, new BoardAccessDeniedException());
@@ -84,45 +88,50 @@ public class BoardService {
 		return toBoardResponse(board, comments);
 	}
 
-	/** 작성자 또는 ADMIN만 게시글을 삭제할 수 있으며, 연관 댓글은 엔티티 규칙에 따라 함께 제거됩니다. */
+	/** 작성자 또는 관리자만 게시글을 삭제할 수 있으며, 게시글과 댓글의 관계가 어긋나지 않도록 연관 댓글도 함께 제거합니다. */
 	@Transactional
 	public void deleteBoard(Long boardId, Long memberId) {
+		// 게시글·회원 조회 → 삭제 권한 확인 → 게시글 삭제 순서로 처리합니다.
 		Board board = findBoard(boardId);
 		Member member = findMember(memberId);
 		validateDeletePermission(board.getAuthor(), member, new BoardAccessDeniedException());
 		boardRepository.delete(board);
 	}
 
-	/** 관리자가 작성자와 관계없이 공지 상태를 변경할 때 사용하는 게시판 도메인 규칙입니다. */
+	/** 관리자 권한을 확인한 뒤 작성자와 관계없이 공지 상태를 변경해 관리자의 공지 관리를 허용합니다. */
 	@Transactional
 	public void updateNoticeByAdmin(Long boardId, Long memberId, boolean notice) {
+		// 관리자 권한 확인 → 게시글 조회 → 공지 상태 변경 순서로 처리합니다.
 		Member member = findMember(memberId);
 		validateAdmin(member);
 		Board board = findBoard(boardId);
 		board.update(board.getTitle(), board.getContent(), notice);
 	}
 
-	/** URL에 게시글 ID가 없는 관리자 강제 삭제도 기존 댓글 삭제 규칙과 같은 저장소를 사용합니다. */
+	/** 게시글 ID 없이 댓글 ID로 삭제하되, 관리자만 작성자 확인 없이 삭제할 수 있도록 권한을 먼저 확인합니다. */
 	@Transactional
 	public void deleteCommentByAdmin(Long commentId, Long memberId) {
+		// 관리자 권한 확인 → 댓글 조회 → 댓글 삭제 순서로 처리합니다.
 		Member member = findMember(memberId);
 		validateAdmin(member);
 		Comment comment = commentRepository.findById(commentId).orElseThrow(CommentNotFoundException::new);
 		commentRepository.delete(comment);
 	}
 
-	/** 댓글은 URL의 게시글 ID로 종속 관계를 확정하고 로그인 회원을 작성자로 저장합니다. */
+	/** URL의 게시글 ID로 댓글의 소속 게시글을 지정하고, 인증된 회원을 작성자로 저장해 댓글 관계를 보장합니다. */
 	@Transactional
 	public CommentResponse createComment(Long boardId, Long memberId, CommentCreateRequest request) {
+		// 게시글·회원 조회 → 댓글 저장 → 댓글 응답 변환 순서로 처리합니다.
 		Board board = findBoard(boardId);
 		Member author = findMember(memberId);
 		Comment comment = commentRepository.save(new Comment(request.content().trim(), board, author));
 		return toCommentResponse(comment);
 	}
 
-	/** 게시글 소속과 댓글 작성자를 확인한 뒤 댓글 내용을 변경합니다. */
+	/** 댓글이 URL의 게시글에 속하는지 먼저 확인하고 작성자만 수정하게 해 다른 게시글을 통한 우회 수정을 막습니다. */
 	@Transactional
 	public CommentResponse updateComment(Long boardId, Long commentId, Long memberId, CommentUpdateRequest request) {
+		// 게시글 소속 댓글·회원 조회 → 작성자 권한 확인 → 내용 수정 및 응답 변환 순서로 처리합니다.
 		Comment comment = findCommentInBoard(boardId, commentId);
 		Member member = findMember(memberId);
 		validateAuthor(comment.getAuthor(), member, new CommentAccessDeniedException());
@@ -130,9 +139,10 @@ public class BoardService {
 		return toCommentResponse(comment);
 	}
 
-	/** 댓글 삭제는 해당 게시글에 속한 댓글인지 먼저 확인해 다른 게시글 URL로의 우회 접근을 막습니다. */
+	/** 댓글이 URL의 게시글에 속하는지 확인한 뒤 작성자 또는 관리자만 삭제하게 해 다른 게시글 URL을 통한 우회 삭제를 막습니다. */
 	@Transactional
 	public void deleteComment(Long boardId, Long commentId, Long memberId) {
+		// 게시글 소속 댓글·회원 조회 → 삭제 권한 확인 → 댓글 삭제 순서로 처리합니다.
 		Comment comment = findCommentInBoard(boardId, commentId);
 		Member member = findMember(memberId);
 		validateDeletePermission(comment.getAuthor(), member, new CommentAccessDeniedException());
