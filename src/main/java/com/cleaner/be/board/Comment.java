@@ -44,6 +44,7 @@ public class Comment extends BaseTimeEntity {
 	public Board getBoard() { return board; }
 	public Member getAuthor() { return author; }
 
+	/** 작성자 권한을 서비스에서 확인한 뒤 검증된 댓글 내용만 교체합니다. */
 	public void update(String content) {
 		this.content = content;
 	}

@@ -11,6 +11,7 @@ import com.cleaner.be.auth.dto.SignupResponse;
 import com.cleaner.be.auth.dto.LoginRequest;
 import com.cleaner.be.auth.dto.LoginResponse;
 
+/** 회원가입·로그인과 회원 상태 변경을 처리하며 인증 도메인의 저장 규칙을 관리합니다. */
 @Service
 public class AuthService {
 
@@ -21,12 +22,12 @@ public class AuthService {
 		this.memberRepository = memberRepository;
 	}
 
-		@Transactional
 	/**
 	 * 회원가입의 핵심 처리입니다.
 	 * 이메일을 표준화하고 중복을 확인한 다음, 원문 비밀번호 대신 BCrypt 해시를 저장합니다.
 	 * 처리 중 예외가 발생하면 {@code @Transactional}에 의해 DB 저장은 롤백됩니다.
 	 */
+	@Transactional
 	public SignupResponse signup(SignupRequest request) {
 		// 대소문자와 앞뒤 공백 차이로 같은 이메일을 여러 번 가입하지 못하게 합니다.
 		String email = request.email().trim().toLowerCase();
@@ -109,6 +110,7 @@ public class AuthService {
 		memberRepository.delete(member);
 	}
 
+	/** 정지된 계정의 로그인과 토큰 갱신을 차단해 보호 API 접근이 이어지지 않게 합니다. */
 	private void validateNotSuspended(Member member) {
 		if (member.isSuspended()) {
 			throw new SuspendedMemberException();

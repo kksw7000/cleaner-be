@@ -41,6 +41,7 @@ public class JwtTokenProvider {
 		this.refreshTokenValidity = refreshTokenValidity;
 	}
 
+	/** 한 번의 인증 흐름에서 Access Token과 Refresh Token을 함께 발급합니다. */
 	public IssuedTokens issueTokens(Member member) {
 		// 한 번의 로그인 또는 갱신 요청에서 짧은 수명의 Access Token과 긴 수명의 Refresh Token을 함께 발급합니다.
 		String accessToken = createToken(member, "access", accessTokenValidity);
@@ -48,6 +49,7 @@ public class JwtTokenProvider {
 		return new IssuedTokens(new TokenResponse(accessToken, "Bearer", accessTokenValidity.toSeconds()), refreshToken);
 	}
 
+	/** Access Token만 필요한 경우에도 동일한 서명·만료 규칙으로 생성합니다. */
 	public String createAccessToken(Member member) {
 		return createToken(member, "access", accessTokenValidity);
 	}
@@ -56,18 +58,22 @@ public class JwtTokenProvider {
 		return refreshTokenValidity.toSeconds();
 	}
 
+	/** 서명과 만료를 확인한 토큰의 subject에서 회원 ID를 읽습니다. */
 	public Long getMemberId(String token) {
 		return Long.valueOf(parse(token).getSubject());
 	}
 
+	/** 토큰이 유효하고 Access Token 용도로 발급됐는지 확인합니다. */
 	public boolean isValidAccessToken(String token) {
 		return hasType(token, "access");
 	}
 
+	/** 토큰이 유효하고 Refresh Token 용도로 발급됐는지 확인합니다. */
 	public boolean isValidRefreshToken(String token) {
 		return hasType(token, "refresh");
 	}
 
+	/** 파싱 실패는 인증 거부로 바꾸고 서명·만료·토큰 용도를 함께 검사합니다. */
 	private boolean hasType(String token, String type) {
 		try {
 			// 서명과 만료 시간을 먼저 검증한 뒤, 용도(type)가 요청한 토큰과 일치하는지도 확인합니다.
@@ -78,11 +84,12 @@ public class JwtTokenProvider {
 	}
 
 
-	//우리가 만든 JWT 토큰인지 아닌지 확인하는 로직
+	/** 서명 검증을 통과한 JWT payload를 읽으며, 위조되거나 잘못된 토큰은 예외로 전달합니다. */
 	private Claims parse(String token) {
 		return Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(token).getPayload();
 	}
 
+	/** 회원 식별 정보와 용도·만료 시각을 담아 서버 서명으로 JWT를 생성합니다. */
 	private String createToken(Member member, String type, Duration validity) {
 		// 토큰 자체에는 비밀번호 대신 회원 식별자와 최소한의 식별 정보만 담아, 이후 요청에서 회원을 식별합니다.
 		Instant now = Instant.now();

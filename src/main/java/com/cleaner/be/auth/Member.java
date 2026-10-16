@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/** 인증·게시판 기능이 공유하며 계정 식별 정보와 권한·정지 상태를 보관하는 회원 엔티티입니다. */
 @Entity
 @Table(name = "members")
 public class Member {
@@ -55,6 +56,7 @@ public class Member {
 		this.phoneNumber = phoneNumber;
 	}
 
+	/** 비밀번호 없이 외부 제공자 식별 정보로 소셜 회원을 생성합니다. */
 	static Member fromOAuth(String email, String name, String oauthProvider, String oauthProviderUserId) {
 		Member member = new Member();
 		member.email = email;

@@ -59,6 +59,7 @@ public class MyPageController {
 		return ResponseEntity.noContent().build();
 	}
 
+	/** JWT 필터의 인증 정보에서 현재 회원 ID를 읽고, 형식이 맞지 않으면 인증 오류로 처리합니다. */
 	private Long currentMemberId() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		if (authentication == null || !(authentication.getPrincipal() instanceof Number memberId)) {

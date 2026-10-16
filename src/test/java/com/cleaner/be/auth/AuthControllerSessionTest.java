@@ -12,8 +12,10 @@ import org.springframework.http.ResponseEntity;
 
 import com.cleaner.be.auth.dto.TokenResponse;
 
+/** 로그인 응답과 Refresh Token 쿠키가 JWT 방식으로 구성되는지 확인합니다. */
 class AuthControllerSessionTest {
 
+	/** 로그인 성공 시 Access Token 응답과 HTTP 전용 Refresh Token 쿠키가 함께 반환되는지 검증합니다. */
 	@Test
 	void loginReturnsJwtTokensInsteadOfCreatingASession() {
 		AuthService authService = mock(AuthService.class);

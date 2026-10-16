@@ -19,6 +19,7 @@ import com.cleaner.be.mypage.dto.MyPageResponse;
 import com.cleaner.be.mypage.dto.ChangePasswordRequest;
 import com.cleaner.be.mypage.dto.UpdateMyPageRequest;
 
+/** 마이페이지의 프로필 공개 범위와 변경·비밀번호 검증 규칙을 확인합니다. */
 @SpringBootTest
 @Transactional
 class MyPageServiceTest {
@@ -29,6 +30,7 @@ class MyPageServiceTest {
 	@Autowired
 	private MyPageService myPageService;
 
+	/** 마이페이지가 비밀번호 등 내부 인증 정보를 제외한 프로필만 반환하는지 확인합니다. */
 	@Test
 	void 로그인한_회원의_공개_프로필만_조회한다() {
 		// 실제 회원가입 데이터를 사용해 마이페이지가 DB의 현재 회원 정보를 조회하는지 확인합니다.
@@ -43,6 +45,7 @@ class MyPageServiceTest {
 		assertThat(response.phoneNumber()).isEqualTo("01033334444");
 	}
 
+	/** 프로필 입력의 공백·대소문자·전화번호 형식이 정규화되어 저장되는지 확인합니다. */
 	@Test
 	void 로그인한_회원이_자신의_프로필을_수정한다() {
 		SignupResponse signupResponse = authService.signup(
@@ -56,6 +59,7 @@ class MyPageServiceTest {
 		assertThat(response.phoneNumber()).isEqualTo("01077778888");
 	}
 
+	/** 다른 회원이 이미 사용 중인 이메일로 프로필을 바꾸지 못하는지 확인합니다. */
 	@Test
 	void 다른_회원의_이메일로는_수정할_수_없다() {
 		authService.signup(new SignupRequest("already@example.com", "Password!1", "기존 사용자", "010-9999-0000"));
@@ -67,6 +71,7 @@ class MyPageServiceTest {
 			.isInstanceOf(DuplicateEmailException.class);
 	}
 
+	/** 현재 비밀번호 검증 후 새 비밀번호만 유효해지고 이전 비밀번호는 거부되는지 확인합니다. */
 	@Test
 	void 현재_비밀번호를_확인한_후_새_비밀번호로_변경한다() {
 		SignupResponse signupResponse = authService.signup(
@@ -81,6 +86,7 @@ class MyPageServiceTest {
 			.isInstanceOf(InvalidCredentialsException.class);
 	}
 
+	/** 현재 비밀번호가 틀리면 새 비밀번호가 적용되지 않는지 확인합니다. */
 	@Test
 	void 현재_비밀번호가_다르면_변경하지_않는다() {
 		SignupResponse signupResponse = authService.signup(

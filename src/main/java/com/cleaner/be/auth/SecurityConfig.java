@@ -11,16 +11,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import jakarta.servlet.http.HttpServletResponse;
 
-@Configuration
-@EnableWebSecurity
 /**
  * JWT 인증 흐름을 Spring Security 필터 체인에 연결합니다.
  * 인증 API는 토큰이 없을 때도 접근해야 하므로 허용하고, 그 외 API는 필터에서 인증된 요청만 통과시킵니다.
  */
+@Configuration
+@EnableWebSecurity
 public class SecurityConfig {
 
+	/** URL별 인가 규칙과 JWT 필터를 하나의 무상태 보안 체인으로 구성합니다. */
 	@Bean
-	// Spring이 리플렉션으로 Bean을 등록하므로 Java 언어 서버의 사용되지 않음 경고를 억제합니다.
 	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
 		return http
 			.csrf(csrf -> csrf.disable())

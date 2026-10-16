@@ -70,6 +70,7 @@ public class Board extends BaseTimeEntity {
 		this.notice = notice;
 	}
 
+	/** 상세 조회 시 열람 횟수를 엔티티 변경 감지로 반영합니다. */
 	public void increaseViewCount() {
 		viewCount++;
 	}
