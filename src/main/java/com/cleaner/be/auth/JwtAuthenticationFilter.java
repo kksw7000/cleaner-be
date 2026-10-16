@@ -32,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		this.memberRepository = memberRepository;
 	}
 
+	/** 요청의 Bearer 토큰을 검증하고 회원 상태를 확인한 뒤 인증 정보를 SecurityContext에 설정합니다. */
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 		throws ServletException, IOException {

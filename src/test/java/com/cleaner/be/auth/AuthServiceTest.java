@@ -13,6 +13,7 @@ import com.cleaner.be.auth.dto.LoginResponse;
 import com.cleaner.be.auth.dto.SignupRequest;
 import com.cleaner.be.auth.dto.SignupResponse;
 
+/** 회원 인증·탈퇴 규칙이 실제 저장소와 함께 동작하는지 확인합니다. */
 @SpringBootTest
 @Transactional
 class AuthServiceTest {
@@ -20,6 +21,7 @@ class AuthServiceTest {
 	@Autowired
 	private AuthService authService;
 
+	/** 이메일 대소문자를 정규화하고 올바른 BCrypt 비밀번호로 로그인되는지 확인합니다. */
 	@Test
 	void 저장된_이메일과_비밀번호가_일치하면_로그인한다() {
 		// 회원가입 과정에서 DB에는 BCrypt 해시 비밀번호가 저장됩니다.
@@ -32,6 +34,7 @@ class AuthServiceTest {
 		assertThat(response.name()).isEqualTo("로그인 사용자");
 	}
 
+	/** 비밀번호가 저장된 BCrypt 해시와 다르면 인증 예외가 발생하는지 확인합니다. */
 	@Test
 	void 비밀번호가_다르면_로그인을_거부한다() {
 		authService.signup(new SignupRequest("wrong-password@example.com", "Password!1", "테스트 사용자", "010-9876-5432"));
@@ -40,6 +43,7 @@ class AuthServiceTest {
 			.isInstanceOf(InvalidCredentialsException.class);
 	}
 
+	/** 탈퇴한 회원의 계정으로는 이후 로그인이 거부되는지 확인합니다. */
 	@Test
 	void 회원탈퇴후_로그인은_실패한다() {
 		SignupResponse signupResponse = authService.signup(
