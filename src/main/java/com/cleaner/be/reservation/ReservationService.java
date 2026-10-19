@@ -2,6 +2,9 @@ package com.cleaner.be.reservation;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,6 +12,7 @@ import com.cleaner.be.auth.Member;
 import com.cleaner.be.auth.MemberRepository;
 import com.cleaner.be.auth.Role;
 import com.cleaner.be.reservation.dto.ReservationCreateRequest;
+import com.cleaner.be.reservation.dto.ReservationPageResponse;
 import com.cleaner.be.reservation.dto.ReservationResponse;
 
 /** 예약 생성·조회·상태 변경 규칙을 처리해 Controller가 인증 정보와 DB 처리 세부 사항을 갖지 않게 합니다. */
@@ -39,21 +43,26 @@ public class ReservationService {
 		return reservationRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream().map(this::toResponse).toList();
 	}
 
-	/** 관리자만 전체 예약을 조회할 수 있게 역할을 다시 검증해 서비스 단독 호출도 보호합니다. */
+	/** 관리자만 예약을 페이지 단위로 조회할 수 있게 역할을 다시 검증해 대량 예약을 한 번에 읽지 않도록 합니다. */
 	@Transactional(readOnly = true)
-	public List<ReservationResponse> getReservationsByAdmin(Long adminId) {
-		// 관리자 확인 후 전체 예약을 최신순으로 조회합니다.
+	public ReservationPageResponse getReservationsByAdmin(Long adminId, int page, int size) {
+		// 관리자 확인 → 최신순 페이지 조회 → API 페이지 응답 변환 순서로 처리합니다.
 		validateAdmin(findMember(adminId));
-		return reservationRepository.findAllByOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
+		Page<Reservation> reservations = reservationRepository.findAllByOrderByCreatedAtDesc(
+			PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"))));
+		return new ReservationPageResponse(reservations.map(this::toResponse).getContent(), reservations.getNumber(),
+			reservations.getSize(), reservations.getTotalElements(), reservations.getTotalPages(), reservations.isFirst(), reservations.isLast());
 	}
 
 	/** 관리자 권한을 확인한 뒤 예약 상태만 변경해 회원이 승인·완료 처리를 임의로 수행하지 못하게 합니다. */
 	@Transactional
 	public ReservationResponse updateStatusByAdmin(Long reservationId, Long adminId, ReservationStatus status) {
-		// 관리자 확인 → 예약 조회 → 상태 변경 → 응답 변환 순서로 처리합니다.
+		// 관리자 확인 → 예약 조회 → 상태 변경 및 감사 시각 반영 → 응답 변환 순서로 처리합니다.
 		validateAdmin(findMember(adminId));
 		Reservation reservation = findReservation(reservationId);
 		reservation.updateStatus(status);
+		// 응답 전에 변경 감지를 실행해 AuditingEntityListener가 기록한 수정 시각을 포함합니다.
+		reservationRepository.flush();
 		return toResponse(reservation);
 	}
 

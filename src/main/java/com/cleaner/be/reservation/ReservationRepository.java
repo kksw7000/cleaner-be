@@ -2,6 +2,8 @@ package com.cleaner.be.reservation;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -12,7 +14,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	@EntityGraph(attributePaths = "member")
 	List<Reservation> findByMemberIdOrderByCreatedAtDesc(Long memberId);
 
-	/** 관리자가 처리 대상을 최신 요청순으로 확인하도록 예약자 정보를 포함해 조회합니다. */
+	/** 관리자가 처리 대상을 페이지 단위로 확인하도록 예약자 정보를 포함해 조회합니다. */
 	@EntityGraph(attributePaths = "member")
-	List<Reservation> findAllByOrderByCreatedAtDesc();
+	Page<Reservation> findAllByOrderByCreatedAtDesc(Pageable pageable);
 }
