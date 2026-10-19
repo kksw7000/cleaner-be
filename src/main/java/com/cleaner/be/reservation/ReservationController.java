@@ -1,0 +1,53 @@
+package com.cleaner.be.reservation;
+
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.cleaner.be.auth.InvalidCredentialsException;
+import com.cleaner.be.reservation.dto.ReservationCreateRequest;
+import com.cleaner.be.reservation.dto.ReservationResponse;
+
+import jakarta.validation.Valid;
+
+/** 회원 예약 HTTP 진입점으로, JWT에서 읽은 회원 ID만 ReservationService에 전달합니다. */
+@RestController
+@RequestMapping("/reservations")
+public class ReservationController {
+
+	private final ReservationService reservationService;
+
+	public ReservationController(ReservationService reservationService) {
+		this.reservationService = reservationService;
+	}
+
+	/** 검증된 예약 요청을 로그인 회원의 예약으로 생성하고, 관리자가 검토할 PENDING 상태를 반환합니다. */
+	@PostMapping
+	@ResponseStatus(HttpStatus.CREATED)
+	public ReservationResponse createReservation(@Valid @RequestBody ReservationCreateRequest request) {
+		return reservationService.createReservation(currentMemberId(), request);
+	}
+
+	/** 로그인 회원의 예약 내역만 조회해 다른 회원의 개인정보가 포함된 예약을 노출하지 않습니다. */
+	@GetMapping
+	public List<ReservationResponse> getMyReservations() {
+		return reservationService.getMyReservations(currentMemberId());
+	}
+
+	/** 인증 필터가 저장한 회원 ID를 읽고, 숫자 principal이 없으면 인증 오류로 처리합니다. */
+	private Long currentMemberId() {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		if (authentication == null || !(authentication.getPrincipal() instanceof Number memberId)) {
+			throw new InvalidCredentialsException();
+		}
+		return memberId.longValue();
+	}
+}
