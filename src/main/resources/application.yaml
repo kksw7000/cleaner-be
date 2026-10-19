@@ -9,6 +9,9 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+  flyway:
+    baseline-version: 3
+    baseline-on-migrate: false
   jpa:
     hibernate:
       ddl-auto: validate

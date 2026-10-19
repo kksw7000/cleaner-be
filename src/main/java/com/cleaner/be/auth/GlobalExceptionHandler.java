@@ -11,6 +11,8 @@ import com.cleaner.be.board.BoardAccessDeniedException;
 import com.cleaner.be.board.BoardNotFoundException;
 import com.cleaner.be.board.CommentAccessDeniedException;
 import com.cleaner.be.board.CommentNotFoundException;
+import com.cleaner.be.reservation.ReservationAccessDeniedException;
+import com.cleaner.be.reservation.ReservationNotFoundException;
 
 /**
  * Controller가 비즈니스 예외를 HTTP 규격으로 변환하는 공통 경계입니다.
@@ -54,15 +56,15 @@ public class GlobalExceptionHandler {
 		return Map.of("message", exception.getMessage());
 	}
 
-	/** 게시글·댓글 미존재 예외를 공통 404 응답으로 변환합니다. */
-	@ExceptionHandler({BoardNotFoundException.class, CommentNotFoundException.class})
+	/** 게시글·댓글·예약 미존재 예외를 공통 404 응답으로 변환합니다. */
+	@ExceptionHandler({BoardNotFoundException.class, CommentNotFoundException.class, ReservationNotFoundException.class})
 	@ResponseStatus(HttpStatus.NOT_FOUND)
 	public Map<String, String> handleNotFound(RuntimeException exception) {
 		return Map.of("message", exception.getMessage());
 	}
 
-	/** 게시글·댓글 권한 예외를 공통 403 응답으로 변환합니다. */
-	@ExceptionHandler({BoardAccessDeniedException.class, CommentAccessDeniedException.class})
+	/** 게시글·댓글·예약 권한 예외를 공통 403 응답으로 변환합니다. */
+	@ExceptionHandler({BoardAccessDeniedException.class, CommentAccessDeniedException.class, ReservationAccessDeniedException.class})
 	@ResponseStatus(HttpStatus.FORBIDDEN)
 	public Map<String, String> handleAccessDenied(RuntimeException exception) {
 		return Map.of("message", exception.getMessage());

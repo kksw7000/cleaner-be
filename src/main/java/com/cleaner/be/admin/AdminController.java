@@ -74,7 +74,7 @@ public class AdminController {
 		@RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
 		return adminService.getMembers(page, size);
 	}
-
+ 
 	/** 요청의 정지 여부를 회원 계정에 반영하고 변경된 회원 정보를 반환합니다. */
 	@PatchMapping("/members/{id}/suspension")
 	public AdminMemberResponse updateMemberSuspension(@PathVariable Long id,

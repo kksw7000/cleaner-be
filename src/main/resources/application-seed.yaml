@@ -1,0 +1,7 @@
+spring:
+  flyway:
+    ignore-migration-patterns:
+      - repeatable:missing
+    locations:
+      - classpath:db/migration
+      - classpath:db/seed
