@@ -38,7 +38,7 @@ public class SecurityConfig {
 					"/api/auth/logout",
 					"/error").permitAll()
 				// 게시판 읽기만 공개하고, 같은 URL의 쓰기 요청은 아래 authenticated 규칙으로 로그인 검사를 거칩니다.
-				.requestMatchers(HttpMethod.GET, "/boards", "/boards/*").permitAll()
+				.requestMatchers(HttpMethod.GET, "/api/boards", "/api/boards/*").permitAll()
 				// 회원 탈퇴는 JWT가 생성한 인증 정보가 있어야만 현재 사용자의 계정을 삭제할 수 있습니다.
 				.anyRequest().authenticated())
 			// 로그인하지 않은 요청과 권한 부족 요청을 각각 401·403으로 명확히 구분합니다.
