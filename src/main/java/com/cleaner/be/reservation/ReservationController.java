@@ -20,7 +20,7 @@ import jakarta.validation.Valid;
 
 /** 회원 예약 HTTP 진입점으로, JWT에서 읽은 회원 ID만 ReservationService에 전달합니다. */
 @RestController
-@RequestMapping("/reservations")
+@RequestMapping("/api/reservations")
 public class ReservationController {
 
 	private final ReservationService reservationService;

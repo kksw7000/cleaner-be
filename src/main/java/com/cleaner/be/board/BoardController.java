@@ -32,7 +32,7 @@ import jakarta.validation.constraints.Min;
 /** 자유 게시판 HTTP 진입점입니다. 로그인 정보는 요청 본문 대신 JWT 필터가 넣은 SecurityContext에서만 읽습니다. */
 @RestController
 @Validated
-@RequestMapping("/boards")
+@RequestMapping("/api/boards")
 public class BoardController {
 
 	private final BoardService boardService;
