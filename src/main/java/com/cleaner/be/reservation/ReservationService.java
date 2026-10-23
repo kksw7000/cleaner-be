@@ -1,10 +1,13 @@
 package com.cleaner.be.reservation;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +15,7 @@ import com.cleaner.be.auth.Member;
 import com.cleaner.be.auth.MemberRepository;
 import com.cleaner.be.auth.Role;
 import com.cleaner.be.reservation.dto.ReservationCreateRequest;
+import com.cleaner.be.reservation.dto.ReservationAvailabilityResponse;
 import com.cleaner.be.reservation.dto.ReservationPageResponse;
 import com.cleaner.be.reservation.dto.ReservationResponse;
 
@@ -32,9 +36,30 @@ public class ReservationService {
 	public ReservationResponse createReservation(Long memberId, ReservationCreateRequest request) {
 		// 1. 예약자 조회 → 2. 입력 정리 및 예약 저장 → 3. 응답 변환 순서로 처리합니다.
 		Member member = findMember(memberId);
-		Reservation reservation = reservationRepository.save(new Reservation(request.serviceCategory(), request.scheduledAt(),
-			request.address().trim(), request.contactName().trim(), request.contactPhone().trim(), normalizeNote(request.requestNote()), member));
-		return toResponse(reservation);
+		LocalDate scheduledDate = request.scheduledAt().toLocalDate();
+		// 달력 조회 뒤 다른 회원이 먼저 예약했을 수 있으므로 저장 전에 같은 날짜의 예약을 다시 확인합니다.
+		if (reservationRepository.existsByScheduledDate(scheduledDate)) {
+			throw new ReservationDateUnavailableException();
+		}
+		try {
+			Reservation reservation = reservationRepository.saveAndFlush(new Reservation(request.serviceCategory(), request.scheduledAt(),
+				request.address().trim(), request.contactName().trim(), request.contactPhone().trim(), normalizeNote(request.requestNote()), member));
+			return toResponse(reservation);
+		} catch (DataIntegrityViolationException exception) {
+			// 동시 요청은 조회를 모두 통과할 수 있으므로 DB 고유 제약 위반도 동일한 예약 불가 오류로 변환합니다.
+			throw new ReservationDateUnavailableException();
+		}
+	}
+
+	/** 선택 가능한 날짜를 달력에 표시하도록 해당 월의 모든 날짜와 예약 여부를 함께 반환합니다. */
+	@Transactional(readOnly = true)
+	public List<ReservationAvailabilityResponse> getMonthlyAvailability(int year, int month) {
+		LocalDate firstDate = LocalDate.of(year, month, 1);
+		LocalDate lastDate = firstDate.withDayOfMonth(firstDate.lengthOfMonth());
+		Set<LocalDate> occupiedDates = Set.copyOf(reservationRepository.findOccupiedDatesBetween(firstDate, lastDate));
+		return firstDate.datesUntil(lastDate.plusDays(1))
+			.map(date -> new ReservationAvailabilityResponse(date, !occupiedDates.contains(date)))
+			.toList();
 	}
 
 	/** 로그인 회원의 예약만 반환해 회원 간 연락처와 주소가 노출되지 않도록 합니다. */

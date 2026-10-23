@@ -26,6 +26,7 @@ import com.cleaner.be.board.CommentAccessDeniedException;
 import com.cleaner.be.board.CommentNotFoundException;
 import com.cleaner.be.reservation.ReservationAccessDeniedException;
 import com.cleaner.be.reservation.ReservationNotFoundException;
+import com.cleaner.be.reservation.ReservationDateUnavailableException;
 
 /**
  * Controller가 비즈니스 예외를 HTTP 규격으로 변환하는 공통 경계입니다.
@@ -82,20 +83,27 @@ public class GlobalExceptionHandler {
 	public Map<String, String> handleAccessDenied(RuntimeException exception) {
 		return Map.of("message", exception.getMessage());
 	}
+
+	/** 이미 선택된 날짜의 예약 요청을 409로 변환하여 클라이언트가 다른 날짜를 선택하도록 안내합니다. */
+	@ExceptionHandler(ReservationDateUnavailableException.class)
+	@ResponseStatus(HttpStatus.CONFLICT)
+	public Map<String, String> handleReservationDateUnavailable(ReservationDateUnavailableException exception) {
+		return Map.of("message", exception.getMessage());
+	}
 }
 ```
 
 ## 3. 줄별 구성과 문법 읽기
 
-`@RestControllerAdvice`가 Controller 예외를 전역 처리하고 반환 Map을 JSON으로 직렬화합니다. `@ExceptionHandler`는 대상 예외, `@ResponseStatus`는 HTTP 코드입니다. `Map.of("message",...)`는 message 한 항목 응답입니다. 이메일/전화 중복=409, 인증 실패=401, 현재 비밀번호=400, 정지/권한거부=403, 대상 없음=404입니다. 여러 게시판/예약 예외는 하나의 handler에 배열로 등록되고 매개변수 RuntimeException의 `getMessage()`를 사용합니다.
+`@RestControllerAdvice`가 Controller 예외를 전역 처리하고 반환 Map을 JSON으로 직렬화합니다. `@ExceptionHandler`는 대상 예외, `@ResponseStatus`는 HTTP 코드입니다. `Map.of("message",...)`는 message 한 항목 응답입니다. 이메일/전화/예약 날짜 중복=409, 인증 실패=401, 현재 비밀번호=400, 정지/권한거부=403, 대상 없음=404입니다. 예약 날짜 예외는 도메인 메시지를 그대로 돌려줍니다. 여러 게시판/예약 예외는 하나의 handler에 배열로 등록되고 매개변수 RuntimeException의 `getMessage()`를 사용합니다.
 
 ## 4. 메서드별 목적·입력·처리 순서·호출·결과·예외
 
-`handleDuplicateEmail`: 중복 예외→409/고정 메시지. `handleDuplicatePhoneNumber`: 전화 중복→409/메시지. `handleInvalidCredentials`: 인증 실패→401, 계정 존재 차이를 감춥니다. `handleInvalidCurrentPassword`: →400. `handleSuspendedMember(exception)`: →403 및 exception message. `handleNotFound(RuntimeException)`: 게시글/댓글/예약 미존재 예외→404. `handleAccessDenied(RuntimeException)`: 해당 권한 예외→403. 각 메서드는 `Map<String,String>`을 반환하며 새 예외를 던지지 않습니다.
+`handleDuplicateEmail`: 중복 예외→409/고정 메시지. `handleDuplicatePhoneNumber`: 전화 중복→409/메시지. `handleInvalidCredentials`: 인증 실패→401, 계정 존재 차이를 감춥니다. `handleInvalidCurrentPassword`: →400. `handleSuspendedMember(exception)`: →403 및 exception message. `handleNotFound(RuntimeException)`: 게시글/댓글/예약 미존재 예외→404. `handleAccessDenied(RuntimeException)`: 해당 권한 예외→403. `handleReservationDateUnavailable(exception)`: 날짜 중복 예외→409 및 예외 메시지. 각 메서드는 `Map<String,String>`을 반환하며 새 예외를 던지지 않습니다.
 
 ## 5. 실제 실행 흐름
 
-Controller/service에서 예외 발생→Spring MVC가 타입에 해당하는 handler 선택→`@ResponseStatus` 코드와 JSON message 반환입니다. 등록되지 않은 예외는 이 클래스 밖의 기본 처리로 갈 수 있습니다.
+Controller/service에서 예외 발생→Spring MVC가 타입에 해당하는 handler 선택→`@ResponseStatus` 코드와 JSON message 반환입니다. 예약 생성 시 사전 조회 또는 DB 고유 제약 위반에서 발생한 날짜 예약 불가 예외는 HTTP 409와 `message` JSON으로 전달됩니다. 등록되지 않은 예외는 이 클래스 밖의 기본 처리로 갈 수 있습니다.
 
 ## 6. 확인된 관계와 추론의 구분
 
@@ -107,7 +115,7 @@ Spring `@RestControllerAdvice`, `@ExceptionHandler`, HTTP status, RuntimeExcepti
 
 ## 8. 코드에 충실한 예시
 
-중복 이메일 예외는 `{"message":"중복된 이메일입니다."}` 및 409로 매핑됩니다. Map JSON 필드 순서는 계약되지 않습니다.
+중복 이메일 예외는 `{"message":"중복된 이메일입니다."}` 및 409로 매핑됩니다. 날짜 중복 예외도 `"이미 예약된 날짜입니다. 다른 날짜를 선택해주세요."`를 `message`로 반환하고 409를 사용합니다. Map JSON 필드 순서는 계약되지 않습니다.
 
 ## 9. 요약
 

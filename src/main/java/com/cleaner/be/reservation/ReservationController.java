@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.cleaner.be.auth.InvalidCredentialsException;
 import com.cleaner.be.reservation.dto.ReservationCreateRequest;
+import com.cleaner.be.reservation.dto.ReservationAvailabilityResponse;
 import com.cleaner.be.reservation.dto.ReservationResponse;
 
 import jakarta.validation.Valid;
@@ -40,6 +42,13 @@ public class ReservationController {
 	@GetMapping
 	public List<ReservationResponse> getMyReservations() {
 		return reservationService.getMyReservations(currentMemberId());
+	}
+
+	/** 로그인한 회원의 달력이 개인정보 없이 날짜별 예약 가능 여부를 표시하도록 지정한 연월의 상태를 반환합니다. */
+	@GetMapping("/availability")
+	public List<ReservationAvailabilityResponse> getMonthlyAvailability(
+		@RequestParam int year, @RequestParam int month) {
+		return reservationService.getMonthlyAvailability(year, month);
 	}
 
 	/** 인증 필터가 저장한 회원 ID를 읽고, 숫자 principal이 없으면 인증 오류로 처리합니다. */
