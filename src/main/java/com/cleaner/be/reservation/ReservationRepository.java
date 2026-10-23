@@ -1,11 +1,14 @@
 package com.cleaner.be.reservation;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /** 예약의 저장과 회원별·관리자용 조회를 제공하며, 응답에 필요한 회원 정보를 함께 읽습니다. */
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
@@ -17,4 +20,11 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	/** 관리자가 처리 대상을 페이지 단위로 확인하도록 예약자 정보를 포함해 조회합니다. */
 	@EntityGraph(attributePaths = "member")
 	Page<Reservation> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+	/** 달력에 표시할 수 있도록 예약된 날짜만 월 범위로 조회하고 개인정보가 포함된 예약 정보는 반환하지 않습니다. */
+	@Query("select r.scheduledDate from Reservation r where r.scheduledDate between :startDate and :endDate")
+	List<LocalDate> findOccupiedDatesBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+	/** 예약 생성 직전에도 같은 날짜의 예약을 다시 확인하여 달력 조회와 생성 요청 사이의 중복을 차단합니다. */
+	boolean existsByScheduledDate(LocalDate scheduledDate);
 }

@@ -13,6 +13,10 @@ import com.cleaner.be.board.CommentAccessDeniedException;
 import com.cleaner.be.board.CommentNotFoundException;
 import com.cleaner.be.reservation.ReservationAccessDeniedException;
 import com.cleaner.be.reservation.ReservationNotFoundException;
+import com.cleaner.be.reservation.ReservationDateUnavailableException;
+import com.cleaner.be.reservation.ReservationYearOutOfRangeException;
+
+import jakarta.validation.ConstraintViolationException;
 
 /**
  * Controller가 비즈니스 예외를 HTTP 규격으로 변환하는 공통 경계입니다.
@@ -67,6 +71,27 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler({BoardAccessDeniedException.class, CommentAccessDeniedException.class, ReservationAccessDeniedException.class})
 	@ResponseStatus(HttpStatus.FORBIDDEN)
 	public Map<String, String> handleAccessDenied(RuntimeException exception) {
+		return Map.of("message", exception.getMessage());
+	}
+
+	/** 이미 선택된 날짜의 예약 요청을 409로 변환하여 클라이언트가 다른 날짜를 선택하도록 안내합니다. */
+	@ExceptionHandler(ReservationDateUnavailableException.class)
+	@ResponseStatus(HttpStatus.CONFLICT)
+	public Map<String, String> handleReservationDateUnavailable(ReservationDateUnavailableException exception) {
+		return Map.of("message", exception.getMessage());
+	}
+
+	/** HTTP 파라미터 검증 실패를 400으로 변환해 허용 범위를 벗어난 요청이 서버 오류로 보이지 않게 합니다. */
+	@ExceptionHandler(ConstraintViolationException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public Map<String, String> handleConstraintViolation() {
+		return Map.of("message", "요청 파라미터가 허용 범위를 벗어났습니다.");
+	}
+
+	/** 예약 조회 연도 범위 오류를 400으로 변환해 클라이언트가 허용 범위를 안내받도록 합니다. */
+	@ExceptionHandler(ReservationYearOutOfRangeException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public Map<String, String> handleReservationYearOutOfRange(ReservationYearOutOfRangeException exception) {
 		return Map.of("message", exception.getMessage());
 	}
 }

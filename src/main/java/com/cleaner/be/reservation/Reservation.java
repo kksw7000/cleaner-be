@@ -1,5 +1,6 @@
 package com.cleaner.be.reservation;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.cleaner.be.auth.Member;
@@ -32,6 +33,9 @@ public class Reservation extends BaseTimeEntity {
 	@Column(nullable = false)
 	private LocalDateTime scheduledAt;
 
+	@Column(nullable = false)
+	private LocalDate scheduledDate;
+
 	@Column(nullable = false, length = 200)
 	private String address;
 
@@ -59,6 +63,7 @@ public class Reservation extends BaseTimeEntity {
 		String contactPhone, String requestNote, Member member) {
 		this.serviceCategory = serviceCategory;
 		this.scheduledAt = scheduledAt;
+		this.scheduledDate = scheduledAt.toLocalDate();
 		this.address = address;
 		this.contactName = contactName;
 		this.contactPhone = contactPhone;
@@ -69,6 +74,7 @@ public class Reservation extends BaseTimeEntity {
 	public Long getId() { return id; }
 	public ServiceCategory getServiceCategory() { return serviceCategory; }
 	public LocalDateTime getScheduledAt() { return scheduledAt; }
+	public LocalDate getScheduledDate() { return scheduledDate; }
 	public String getAddress() { return address; }
 	public String getContactName() { return contactName; }
 	public String getContactPhone() { return contactPhone; }
