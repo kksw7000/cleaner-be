@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,8 @@ import com.cleaner.be.reservation.dto.ReservationResponse;
 /** 예약 생성·조회·상태 변경 규칙을 처리해 Controller가 인증 정보와 DB 처리 세부 사항을 갖지 않게 합니다. */
 @Service
 public class ReservationService {
+
+	private static final String SCHEDULED_DATE_UNIQUE_CONSTRAINT = "uk_reservations_scheduled_date";
 
 	private final ReservationRepository reservationRepository;
 	private final MemberRepository memberRepository;
@@ -55,9 +58,25 @@ public class ReservationService {
 				request.address().trim(), request.contactName().trim(), request.contactPhone().trim(), normalizeNote(request.requestNote()), member));
 			return toResponse(reservation);
 		} catch (DataIntegrityViolationException exception) {
-			// 동시 요청은 조회를 모두 통과할 수 있으므로 DB 고유 제약 위반도 동일한 예약 불가 오류로 변환합니다.
-			throw new ReservationDateUnavailableException();
+			// 날짜 고유 제약 위반만 예약 충돌로 바꾸고, 회원 FK 등 다른 데이터 오류는 원래 원인을 유지합니다.
+			if (isScheduledDateUniqueConstraintViolation(exception)) {
+				throw new ReservationDateUnavailableException();
+			}
+			throw exception;
 		}
+	}
+
+	/** 예외 원인 체인에서 날짜 고유 제약 위반만 찾아 동시 예약 충돌인지 구분합니다. */
+	private boolean isScheduledDateUniqueConstraintViolation(DataIntegrityViolationException exception) {
+		Throwable cause = exception;
+		while (cause != null) {
+			if (cause instanceof ConstraintViolationException constraintViolation
+				&& SCHEDULED_DATE_UNIQUE_CONSTRAINT.equals(constraintViolation.getConstraintName())) {
+				return true;
+			}
+			cause = cause.getCause();
+		}
+		return false;
 	}
 
 	/** 선택 가능한 날짜를 달력에 표시하도록 해당 월의 모든 날짜와 예약 여부를 함께 반환합니다. */
@@ -137,11 +156,12 @@ public class ReservationService {
 
 ## 3. 코드 한 줄씩
 
-- `LocalDate`와 `Set`은 날짜별 예약 여부를 계산하고, `List`와 Spring `Page`, `PageRequest`, `Sort`는 예약 목록과 관리자 페이지에 사용됩니다. `DataIntegrityViolationException`은 DB 제약 위반을 식별하며 `@Transactional`은 DB 작업 경계입니다.
+- `LocalDate`와 `Set`은 날짜별 예약 여부를 계산하고, `List`와 Spring `Page`, `PageRequest`, `Sort`는 예약 목록과 관리자 페이지에 사용됩니다. Spring `DataIntegrityViolationException`과 Hibernate `ConstraintViolationException`은 DB 무결성 오류 및 제약 이름을 구분하며 `@Transactional`은 DB 작업 경계입니다.
 - `Member`, `MemberRepository`, `Role`은 요청자를 조회하고 관리자 역할을 확인합니다. DTO 타입들은 생성 입력, 날짜 가용성 및 예약 응답 형태입니다.
 - 클래스 주석과 `@Service`는 비즈니스 서비스 계층임을 표시합니다.
 - 두 `final` 필드는 예약 repository와 회원 repository 의존성입니다. 생성자는 Spring이 주입한 값을 필드에 보관합니다.
-- `createReservation`: 쓰기 트랜잭션에서 회원과 날짜 중복을 먼저 확인하고 입력을 정리해 저장합니다. DB 고유 제약 위반도 날짜 예약 불가 예외로 변환하여 동시에 들어온 중복 요청을 막습니다.
+- `createReservation`: 쓰기 트랜잭션에서 회원과 날짜 중복을 먼저 확인하고 입력을 정리해 저장합니다. DB의 날짜 unique 제약 위반만 예약 불가 예외로 바꾸며, 다른 무결성 오류는 원래 예외로 전파합니다.
+- `isScheduledDateUniqueConstraintViolation`: 예외 원인 체인을 순회해 Hibernate 제약 이름이 `uk_reservations_scheduled_date`와 정확히 일치하는 경우에만 true를 반환합니다. 이름이 다르거나 확인할 수 없으면 false입니다.
 - `getMonthlyAvailability`: 조회 전용 트랜잭션에서 해당 월의 예약 날짜만 가져와 달의 모든 날짜를 가용 여부 응답으로 변환합니다.
 - `getMyReservations`: 읽기 전용 트랜잭션에서 해당 회원 예약을 최신순 조회, stream 변환해 DTO 목록을 반환합니다.
 - `getReservationsByAdmin`: 관리자 검증 후 `PageRequest.of(page,size,정렬)`로 최신 생성순 페이지를 조회하고 DTO 내용 및 페이지 정보를 반환합니다.
@@ -155,7 +175,8 @@ public class ReservationService {
 ## 4. 메서드 분석
 
 - 생성자: 두 repository를 입력받아 저장합니다. 반환값은 객체이며 별도 호출/예외 로직은 없습니다.
-- `createReservation(memberId, request)`: ① 회원 확인 ② 예약 시각에서 날짜를 추출해 기존 예약 확인 ③ 입력 문자열 정리 ④ `saveAndFlush` 및 DTO 변환. 사전 확인은 빠른 오류 응답을 제공하고, DB의 날짜 고유 제약과 `DataIntegrityViolationException` 변환은 두 요청이 동시에 확인을 통과하는 경쟁 상황을 차단합니다. 예약 불가이면 `ReservationDateUnavailableException`, 회원 ID가 없으면 권한 예외가 발생합니다. `saveAndFlush`로 제약 위반을 이 메서드 안에서 확인합니다.
+- `createReservation(memberId, request)`: ① 회원 확인 ② 예약 시각에서 날짜를 추출해 기존 예약 확인 ③ 입력 문자열 정리 ④ `saveAndFlush` 및 DTO 변환. 날짜 제약 위반만 `ReservationDateUnavailableException`으로 바꿉니다. 제약 이름이 다른 `DataIntegrityViolationException`은 같은 인스턴스 그대로 다시 던져 회원 외래 키 등 다른 실패 원인을 보존합니다. 회원 ID가 없으면 권한 예외가 발생하며, `saveAndFlush`로 제약 위반을 이 메서드 안에서 확인합니다.
+- `isScheduledDateUniqueConstraintViolation(exception)`: 원인 객체를 차례로 확인해 Hibernate `ConstraintViolationException`의 제약 이름이 예약 날짜 고유 제약과 같은지 boolean으로 반환합니다. 제약 이름이 없거나 일치하지 않으면 false입니다.
 - `getMonthlyAvailability(year, month)`: `LocalDate.of`로 해당 월의 첫날을 만들고 말일을 계산한 뒤, 월 범위의 예약 날짜 집합을 조회합니다. 해당 월의 날짜를 빠짐없이 순회해 예약이 없는 날은 `available=true`, 예약된 날은 `false`인 DTO 목록을 반환합니다. 잘못된 연월은 `LocalDate`의 날짜 검증 예외가 발생하며, Controller 경로의 파라미터 범위 제약은 별도로 확인해야 합니다.
 - `getMyReservations(memberId)`: repository 회원별 조회 → stream으로 각 엔티티를 `toResponse` 처리 → 불변 결과 목록 형태로 반환합니다. 반환은 DTO 목록이며 명시적 예외 처리는 없습니다.
 - `getReservationsByAdmin(adminId,page,size)`: 회원 조회 → `validateAdmin` → 페이지 쿼리 → DTO 내용과 총 개수/페이지/첫·마지막 값을 반환합니다. 비관리자 또는 회원 미존재는 권한 예외입니다. 유효 범위는 Controller의 `@Min`/`@Max`에서 검증되며, 서비스 단독 호출은 페이지 입력을 검증하지 않습니다.

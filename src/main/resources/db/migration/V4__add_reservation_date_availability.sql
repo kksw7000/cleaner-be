@@ -5,6 +5,13 @@ ALTER TABLE reservations ADD COLUMN scheduled_date date;
 UPDATE reservations SET scheduled_date = CAST(scheduled_at AS date);
 
 ALTER TABLE reservations ALTER COLUMN scheduled_date SET NOT NULL;
+
+-- migration을 시작하기 전에 운영자가 아래 진단 쿼리를 별도로 실행하고, 결과가 있으면 업무 기준에 따라 수동 정리합니다.
+-- SELECT CAST(scheduled_at AS date) AS scheduled_date, COUNT(*) AS reservation_count
+-- FROM reservations
+-- GROUP BY CAST(scheduled_at AS date)
+-- HAVING COUNT(*) > 1;
+-- 중복이 남아 있으면 아래 UNIQUE 제약 적용이 실패하며, migration은 예약 행을 자동 삭제하지 않습니다.
 -- 같은 날짜의 중복 예약은 동시 요청에서도 허용되지 않아야 하므로 DB 고유 제약으로 최종 차단합니다.
 ALTER TABLE reservations ADD CONSTRAINT uk_reservations_scheduled_date UNIQUE (scheduled_date);
 

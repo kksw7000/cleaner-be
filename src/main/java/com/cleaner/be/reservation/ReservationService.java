@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -22,6 +23,8 @@ import com.cleaner.be.reservation.dto.ReservationResponse;
 /** 예약 생성·조회·상태 변경 규칙을 처리해 Controller가 인증 정보와 DB 처리 세부 사항을 갖지 않게 합니다. */
 @Service
 public class ReservationService {
+
+	private static final String SCHEDULED_DATE_UNIQUE_CONSTRAINT = "uk_reservations_scheduled_date";
 
 	private final ReservationRepository reservationRepository;
 	private final MemberRepository memberRepository;
@@ -46,9 +49,25 @@ public class ReservationService {
 				request.address().trim(), request.contactName().trim(), request.contactPhone().trim(), normalizeNote(request.requestNote()), member));
 			return toResponse(reservation);
 		} catch (DataIntegrityViolationException exception) {
-			// 동시 요청은 조회를 모두 통과할 수 있으므로 DB 고유 제약 위반도 동일한 예약 불가 오류로 변환합니다.
-			throw new ReservationDateUnavailableException();
+			// 날짜 고유 제약 위반만 예약 충돌로 바꾸고, 회원 FK 등 다른 데이터 오류는 원래 원인을 유지합니다.
+			if (isScheduledDateUniqueConstraintViolation(exception)) {
+				throw new ReservationDateUnavailableException();
+			}
+			throw exception;
 		}
+	}
+
+	/** 예외 원인 체인에서 날짜 고유 제약 위반만 찾아 동시 예약 충돌인지 구분합니다. */
+	private boolean isScheduledDateUniqueConstraintViolation(DataIntegrityViolationException exception) {
+		Throwable cause = exception;
+		while (cause != null) {
+			if (cause instanceof ConstraintViolationException constraintViolation
+				&& SCHEDULED_DATE_UNIQUE_CONSTRAINT.equals(constraintViolation.getConstraintName())) {
+				return true;
+			}
+			cause = cause.getCause();
+		}
+		return false;
 	}
 
 	/** 선택 가능한 날짜를 달력에 표시하도록 해당 월의 모든 날짜와 예약 여부를 함께 반환합니다. */

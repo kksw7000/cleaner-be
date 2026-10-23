@@ -1,10 +1,12 @@
 package com.cleaner.be.reservation;
 
+import java.time.Year;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,9 +21,12 @@ import com.cleaner.be.reservation.dto.ReservationAvailabilityResponse;
 import com.cleaner.be.reservation.dto.ReservationResponse;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
-/** 회원 예약 HTTP 진입점으로, JWT에서 읽은 회원 ID만 ReservationService에 전달합니다. */
+/** 회원 예약 HTTP 진입점으로, 요청 파라미터 범위를 검증하고 JWT에서 읽은 회원 ID를 ReservationService에 전달합니다. */
 @RestController
+@Validated
 @RequestMapping("/api/reservations")
 public class ReservationController {
 
@@ -44,10 +49,17 @@ public class ReservationController {
 		return reservationService.getMyReservations(currentMemberId());
 	}
 
-	/** 로그인한 회원의 달력이 개인정보 없이 날짜별 예약 가능 여부를 표시하도록 지정한 연월의 상태를 반환합니다. */
+	/** 현재 연도 기준 ±3년과 월 1~12 범위의 달력 가용성을 반환해 잘못된 연월 조회를 HTTP 경계에서 차단합니다. */
 	@GetMapping("/availability")
 	public List<ReservationAvailabilityResponse> getMonthlyAvailability(
-		@RequestParam int year, @RequestParam int month) {
+		@RequestParam int year,
+		@RequestParam @Min(1) @Max(12) int month) {
+		int currentYear = Year.now().getValue();
+		int minimumYear = currentYear - 3;
+		int maximumYear = currentYear + 3;
+		if (year < minimumYear || year > maximumYear) {
+			throw new ReservationYearOutOfRangeException(minimumYear, maximumYear);
+		}
 		return reservationService.getMonthlyAvailability(year, month);
 	}
 

@@ -10,6 +10,11 @@
 ALTER TABLE reservations ADD COLUMN scheduled_date date;
 UPDATE reservations SET scheduled_date = CAST(scheduled_at AS date);
 ALTER TABLE reservations ALTER COLUMN scheduled_date SET NOT NULL;
+-- migration 시작 전에 운영자가 아래 진단 쿼리를 별도로 실행하고, 중복이 있으면 수동 정리합니다.
+-- SELECT CAST(scheduled_at AS date) AS scheduled_date, COUNT(*) AS reservation_count
+-- FROM reservations
+-- GROUP BY CAST(scheduled_at AS date)
+-- HAVING COUNT(*) > 1;
 ALTER TABLE reservations ADD CONSTRAINT uk_reservations_scheduled_date UNIQUE (scheduled_date);
 CREATE INDEX idx_reservations_scheduled_date_status ON reservations (scheduled_date, status);
 ```
@@ -20,9 +25,10 @@ CREATE INDEX idx_reservations_scheduled_date_status ON reservations (scheduled_d
 
 1. `scheduled_date`를 우선 nullable 컬럼으로 추가합니다.
 2. 기존 행의 `scheduled_at`에서 날짜를 계산해 채워 기존 예약 데이터를 보존합니다.
-3. 값이 채워진 뒤 컬럼을 `NOT NULL`로 바꿉니다.
-4. 날짜 unique constraint로 전체 테이블에서 날짜당 하나의 예약만 허용합니다.
-5. 월별 날짜 조회가 범위 조건을 효율적으로 사용할 수 있도록 예약 날짜 및 상태 복합 인덱스를 생성합니다.
+3. migration을 적용하기 전에 `scheduled_at`의 날짜별 예약 수 진단 쿼리를 실행합니다.
+4. 중복이 발견되면 예약 내용과 상태를 확인해 업무 기준에 따라 사람이 수동 정리해야 하며, migration은 예약 행을 삭제하거나 자동 변경하지 않습니다. 중복을 해결한 뒤 migration을 실행합니다.
+5. `NOT NULL`과 날짜 unique constraint를 적용해 전체 테이블에서 날짜당 하나의 예약만 허용합니다. 사전 확인을 놓쳐 중복이 남아 있으면 unique constraint 적용이 실패합니다.
+6. 월별 날짜 조회가 범위 조건을 효율적으로 사용할 수 있도록 예약 날짜 및 상태 복합 인덱스를 생성합니다.
 
 ## 4. 코드와의 연결
 
@@ -30,7 +36,14 @@ CREATE INDEX idx_reservations_scheduled_date_status ON reservations (scheduled_d
 
 ## 5. 기존 데이터와 제약
 
-기존 행을 먼저 채운 다음 `NOT NULL`과 unique constraint를 적용해 null 데이터가 남지 않도록 합니다. 이 migration은 예약 시각의 날짜를 기준으로 변환하므로, 같은 날짜에 이미 여러 예약이 있는 DB에서는 unique constraint 생성 단계가 실패할 수 있습니다. 적용 전 기존 중복 날짜 여부를 확인해야 합니다.
+기존 데이터를 보존하려면 migration 적용 전에 아래 진단 쿼리를 실행해야 합니다. 중복이 있으면 예약 정보를 살펴보고 업무 기준에 맞춰 수동으로 정리한 뒤 migration을 적용합니다. 이 migration에는 예약 행을 자동 삭제하거나 임의로 선택하는 로직이 없습니다. 중복을 놓치더라도 DB의 unique constraint가 적용 단계에서 실패하므로, 중복 날짜를 해결하기 전에는 제약이 생성되지 않습니다.
+
+```sql
+SELECT CAST(scheduled_at AS date) AS scheduled_date, COUNT(*) AS reservation_count
+FROM reservations
+GROUP BY CAST(scheduled_at AS date)
+HAVING COUNT(*) > 1;
+```
 
 ## 6. 인덱스와 주의점
 
