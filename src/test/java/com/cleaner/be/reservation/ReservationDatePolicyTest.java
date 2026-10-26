@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
@@ -22,6 +24,8 @@ import com.cleaner.be.reservation.dto.ReservationCreateRequest;
 /** 예약 날짜 정책이 한국 날짜와 활성 상태 조회를 기준으로 동작하는지 확인합니다. */
 class ReservationDatePolicyTest {
 
+	private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-10-26T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+
 	private ReservationRepository reservationRepository;
 	private MemberRepository memberRepository;
 	private ReservationService reservationService;
@@ -31,7 +35,7 @@ class ReservationDatePolicyTest {
 	void setUp() {
 		reservationRepository = mock(ReservationRepository.class);
 		memberRepository = mock(MemberRepository.class);
-		reservationService = new ReservationService(reservationRepository, memberRepository);
+		reservationService = new ReservationService(reservationRepository, memberRepository, FIXED_CLOCK);
 		when(memberRepository.findById(1L)).thenReturn(Optional.of(mock(Member.class)));
 		when(reservationRepository.existsByScheduledDateAndStatusIn(any(), anyCollection())).thenReturn(false);
 		when(reservationRepository.saveAndFlush(any(Reservation.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -40,7 +44,7 @@ class ReservationDatePolicyTest {
 	/** 대한민국 오늘 날짜는 선택한 시각이 지나갔더라도 예약 요청을 허용합니다. */
 	@Test
 	void todayIsAllowed() {
-		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		LocalDate today = LocalDate.now(FIXED_CLOCK);
 
 		reservationService.createReservation(1L, request(today.atStartOfDay()));
 
@@ -51,7 +55,7 @@ class ReservationDatePolicyTest {
 	/** 대한민국 어제 날짜는 데이터베이스 조회나 저장 전에 예약 요청을 거부합니다. */
 	@Test
 	void pastDateIsRejected() {
-		LocalDate yesterday = LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(1);
+		LocalDate yesterday = LocalDate.now(FIXED_CLOCK).minusDays(1);
 
 		assertThatThrownBy(() -> reservationService.createReservation(1L, request(yesterday.atStartOfDay())))
 			.isInstanceOf(ReservationPastDateException.class);

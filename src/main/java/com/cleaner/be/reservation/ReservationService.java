@@ -2,7 +2,6 @@ package com.cleaner.be.reservation;
 
 import java.time.LocalDate;
 import java.time.Clock;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 
@@ -28,14 +27,15 @@ public class ReservationService {
 
 	private static final String SCHEDULED_DATE_UNIQUE_CONSTRAINT = "uk_reservations_active_scheduled_date";
 	private static final List<ReservationStatus> ACTIVE_STATUSES = List.of(ReservationStatus.PENDING, ReservationStatus.APPROVED);
-	private static final Clock KOREA_CLOCK = Clock.system(ZoneId.of("Asia/Seoul"));
 
 	private final ReservationRepository reservationRepository;
 	private final MemberRepository memberRepository;
+	private final Clock koreaClock;
 
-	public ReservationService(ReservationRepository reservationRepository, MemberRepository memberRepository) {
+	public ReservationService(ReservationRepository reservationRepository, MemberRepository memberRepository, Clock koreaClock) {
 		this.reservationRepository = reservationRepository;
 		this.memberRepository = memberRepository;
+		this.koreaClock = koreaClock;
 	}
 
 	/** 로그인 회원을 예약자로 연결해 요청을 저장하고, 공백만 있는 문자열은 정리해 데이터 품질을 유지합니다. */
@@ -64,7 +64,7 @@ public class ReservationService {
 
 	/** 대한민국 날짜를 기준으로 오늘은 허용하고 과거 날짜만 거부합니다. */
 	private void validateNotPastDate(LocalDate scheduledDate) {
-		if (scheduledDate.isBefore(LocalDate.now(KOREA_CLOCK))) {
+		if (scheduledDate.isBefore(LocalDate.now(koreaClock))) {
 			throw new ReservationPastDateException();
 		}
 	}

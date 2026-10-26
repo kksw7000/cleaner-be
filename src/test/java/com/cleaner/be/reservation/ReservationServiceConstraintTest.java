@@ -6,7 +6,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.sql.SQLException;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import org.hibernate.exception.ConstraintViolationException;
@@ -21,6 +24,8 @@ import com.cleaner.be.reservation.dto.ReservationCreateRequest;
 /** 예약 생성은 날짜 고유 제약만 도메인 충돌로 변환하고 다른 DB 오류는 보존하는지 확인합니다. */
 class ReservationServiceConstraintTest {
 
+	private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-10-26T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+
 	private ReservationRepository reservationRepository;
 	private MemberRepository memberRepository;
 	private ReservationService reservationService;
@@ -30,7 +35,7 @@ class ReservationServiceConstraintTest {
 	void setUp() {
 		reservationRepository = mock(ReservationRepository.class);
 		memberRepository = mock(MemberRepository.class);
-		reservationService = new ReservationService(reservationRepository, memberRepository);
+		reservationService = new ReservationService(reservationRepository, memberRepository, FIXED_CLOCK);
 		when(memberRepository.findById(1L)).thenReturn(Optional.of(mock(Member.class)));
 		when(reservationRepository.existsByScheduledDateAndStatusIn(any(), any())).thenReturn(false);
 	}
@@ -59,7 +64,7 @@ class ReservationServiceConstraintTest {
 	private void createReservation() {
 		reservationService.createReservation(1L, new ReservationCreateRequest(
 			ServiceCategory.MATTRESS,
-			LocalDateTime.now(java.time.Clock.system(java.time.ZoneId.of("Asia/Seoul"))).plusDays(1),
+			LocalDateTime.now(FIXED_CLOCK).plusDays(1),
 			"주소",
 			"예약자",
 			"01012345678",
