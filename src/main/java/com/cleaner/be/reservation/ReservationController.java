@@ -1,6 +1,8 @@
 package com.cleaner.be.reservation;
 
 import java.time.Year;
+import java.time.Clock;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,8 @@ import jakarta.validation.constraints.Min;
 @RequestMapping("/api/reservations")
 public class ReservationController {
 
+	private static final Clock KOREA_CLOCK = Clock.system(ZoneId.of("Asia/Seoul"));
+
 	private final ReservationService reservationService;
 
 	public ReservationController(ReservationService reservationService) {
@@ -54,7 +58,7 @@ public class ReservationController {
 	public List<ReservationAvailabilityResponse> getMonthlyAvailability(
 		@RequestParam int year,
 		@RequestParam @Min(1) @Max(12) int month) {
-		int currentYear = Year.now().getValue();
+		int currentYear = Year.now(KOREA_CLOCK).getValue();
 		int minimumYear = currentYear - 3;
 		int maximumYear = currentYear + 3;
 		if (year < minimumYear || year > maximumYear) {

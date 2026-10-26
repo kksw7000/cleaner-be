@@ -32,13 +32,13 @@ class ReservationServiceConstraintTest {
 		memberRepository = mock(MemberRepository.class);
 		reservationService = new ReservationService(reservationRepository, memberRepository);
 		when(memberRepository.findById(1L)).thenReturn(Optional.of(mock(Member.class)));
-		when(reservationRepository.existsByScheduledDate(any())).thenReturn(false);
+		when(reservationRepository.existsByScheduledDateAndStatusIn(any(), any())).thenReturn(false);
 	}
 
 	/** 동시 예약으로 날짜 unique constraint가 위반되면 예약 불가 도메인 예외로 바꿉니다. */
 	@Test
 	void scheduledDateUniqueConstraintBecomesReservationUnavailable() {
-		DataIntegrityViolationException databaseException = integrityViolation("uk_reservations_scheduled_date");
+		DataIntegrityViolationException databaseException = integrityViolation("uk_reservations_active_scheduled_date");
 		when(reservationRepository.saveAndFlush(any(Reservation.class))).thenThrow(databaseException);
 
 		assertThatThrownBy(this::createReservation)
@@ -59,7 +59,7 @@ class ReservationServiceConstraintTest {
 	private void createReservation() {
 		reservationService.createReservation(1L, new ReservationCreateRequest(
 			ServiceCategory.MATTRESS,
-			LocalDateTime.now().plusDays(1),
+			LocalDateTime.now(java.time.Clock.system(java.time.ZoneId.of("Asia/Seoul"))).plusDays(1),
 			"주소",
 			"예약자",
 			"01012345678",

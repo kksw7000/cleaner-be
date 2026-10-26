@@ -49,6 +49,12 @@ HAVING COUNT(*) > 1;
 
 인덱스는 `scheduled_date`와 `status` 순서로 구성됩니다. 현재 repository의 월별 조회는 `scheduled_date` 범위 조건을 사용하며, 실제 실행 계획과 인덱스 활용은 DB 엔진이 결정합니다. 현재 JPQL 날짜 조회에는 상태 조건이 없으므로 이 인덱스의 두 번째 컬럼이 모든 쿼리에 사용된다고 단정하지 않습니다.
 
-## 7. 요약
+## 7. V5에서 활성 예약만 날짜를 점유하도록 변경
+
+[`V5__allow_rebooking_inactive_reservation_dates.sql`](../../src/main/resources/db/migration/V5__allow_rebooking_inactive_reservation_dates.sql)은 V4의 전체 날짜 unique 제약을 제거하고 PostgreSQL 부분 고유 인덱스로 교체합니다. 인덱스 조건은 `PENDING`, `APPROVED`만 포함하므로 `REJECTED`, `CANCELLED`, 기존 호환 상태인 `CANCELED`, `COMPLETED`는 같은 날짜의 재예약을 막지 않습니다.
+
+서비스 조회도 같은 활성 상태만 대상으로 하며, 관리자 상태 변경으로 예약을 다시 활성화할 때 기존 날짜 예약을 먼저 확인합니다. 조회 후 상태 변경과 동시에 다른 요청이 진행되더라도 부분 고유 인덱스가 최종 중복을 차단합니다. 생성 및 상태 변경은 해당 인덱스 위반을 HTTP 409 날짜 마감 응답으로 변환합니다.
+
+## 8. 요약
 
 예약 날짜 컬럼을 기존 데이터에서 채우고 필수·고유 제약 및 복합 인덱스를 추가하여 날짜별 중복 방지와 달력 조회를 DB 스키마에 반영합니다.
