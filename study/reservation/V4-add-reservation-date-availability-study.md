@@ -59,7 +59,7 @@ HAVING COUNT(*) > 1;
 
 ## 8. 마이그레이션 실패 시 확인 순서
 
-V5의 `CREATE INDEX CONCURRENTLY`는 트랜잭션 안에서 실행할 수 없습니다. 프로젝트 설정의 `spring.flyway.postgresql.transactional-lock: false`는 Flyway의 PostgreSQL 마이그레이션 잠금을 세션 수준 잠금으로 바꾸며, SQL 자체의 트랜잭션 실행 설정을 끄는 것은 아닙니다. 실패한 인덱스가 남을 수 있으므로 배포를 중단하고 Flyway 실패 이력과 인덱스의 유효 상태를 먼저 확인해야 합니다.
+V5의 `CREATE INDEX CONCURRENTLY`는 트랜잭션 안에서 실행할 수 없으므로, 같은 migration 이름의 [`V5__allow_rebooking_inactive_reservation_dates.sql.conf`](../../src/main/resources/db/migration/V5__allow_rebooking_inactive_reservation_dates.sql.conf)에 `executeInTransaction=false`를 설정해 V5 SQL을 트랜잭션 밖에서 실행합니다. 이 파일은 해당 마이그레이션에만 적용됩니다. 별도로 `spring.flyway.postgresql.transactional-lock: false`는 Flyway PostgreSQL 잠금을 트랜잭션 범위가 아닌 세션 수준으로 바꾸는 설정이며, SQL 마이그레이션의 트랜잭션 실행 여부를 변경하지 않습니다. 실패한 인덱스가 남을 수 있으므로 배포를 중단하고 Flyway 실패 이력과 인덱스의 유효 상태를 먼저 확인해야 합니다.
 
 1. `flyway info`와 운영용 실패 복구 문서의 이력 조회 SQL로 V5/V6 상태를 확인합니다.
 2. PostgreSQL 카탈로그에서 `uk_reservations_active_scheduled_date`가 존재하는지와 `indisvalid`, `indisready`, 정의를 확인합니다.
