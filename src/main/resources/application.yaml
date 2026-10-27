@@ -12,6 +12,8 @@ spring:
   flyway:
     baseline-version: 3
     baseline-on-migrate: false
+    postgresql:
+      transactional-lock: false
   jpa:
     hibernate:
       ddl-auto: validate
