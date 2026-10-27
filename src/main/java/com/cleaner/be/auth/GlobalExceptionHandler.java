@@ -15,6 +15,7 @@ import com.cleaner.be.reservation.ReservationAccessDeniedException;
 import com.cleaner.be.reservation.ReservationNotFoundException;
 import com.cleaner.be.reservation.ReservationDateUnavailableException;
 import com.cleaner.be.reservation.ReservationYearOutOfRangeException;
+import com.cleaner.be.reservation.ReservationPastDateException;
 
 import jakarta.validation.ConstraintViolationException;
 
@@ -78,6 +79,13 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(ReservationDateUnavailableException.class)
 	@ResponseStatus(HttpStatus.CONFLICT)
 	public Map<String, String> handleReservationDateUnavailable(ReservationDateUnavailableException exception) {
+		return Map.of("message", exception.getMessage());
+	}
+
+	/** 과거 예약 날짜 요청을 400으로 변환해 클라이언트가 날짜를 다시 선택하도록 안내합니다. */
+	@ExceptionHandler(ReservationPastDateException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public Map<String, String> handleReservationPastDate(ReservationPastDateException exception) {
 		return Map.of("message", exception.getMessage());
 	}
 

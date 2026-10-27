@@ -1,6 +1,7 @@
 package com.cleaner.be.reservation;
 
 import java.time.LocalDate;
+import java.time.Clock;
 import java.util.List;
 import java.util.Set;
 
@@ -24,24 +25,28 @@ import com.cleaner.be.reservation.dto.ReservationResponse;
 @Service
 public class ReservationService {
 
-	private static final String SCHEDULED_DATE_UNIQUE_CONSTRAINT = "uk_reservations_scheduled_date";
+	private static final String SCHEDULED_DATE_UNIQUE_CONSTRAINT = "uk_reservations_active_scheduled_date";
+	private static final List<ReservationStatus> ACTIVE_STATUSES = List.of(ReservationStatus.PENDING, ReservationStatus.APPROVED);
 
 	private final ReservationRepository reservationRepository;
 	private final MemberRepository memberRepository;
+	private final Clock koreaClock;
 
-	public ReservationService(ReservationRepository reservationRepository, MemberRepository memberRepository) {
+	public ReservationService(ReservationRepository reservationRepository, MemberRepository memberRepository, Clock koreaClock) {
 		this.reservationRepository = reservationRepository;
 		this.memberRepository = memberRepository;
+		this.koreaClock = koreaClock;
 	}
 
 	/** 로그인 회원을 예약자로 연결해 요청을 저장하고, 공백만 있는 문자열은 정리해 데이터 품질을 유지합니다. */
 	@Transactional
 	public ReservationResponse createReservation(Long memberId, ReservationCreateRequest request) {
-		// 1. 예약자 조회 → 2. 입력 정리 및 예약 저장 → 3. 응답 변환 순서로 처리합니다.
+		// 1. 예약자·대한민국 날짜 확인 → 2. 활성 날짜 중복 확인 → 3. 저장 및 응답 변환 순서로 처리합니다.
 		Member member = findMember(memberId);
 		LocalDate scheduledDate = request.scheduledAt().toLocalDate();
-		// 달력 조회 뒤 다른 회원이 먼저 예약했을 수 있으므로 저장 전에 같은 날짜의 예약을 다시 확인합니다.
-		if (reservationRepository.existsByScheduledDate(scheduledDate)) {
+		validateNotPastDate(scheduledDate);
+		// 달력 확인 후 먼저 저장된 활성 예약을 다시 검사하고, DB 인덱스가 동시 요청을 최종 직렬화합니다.
+		if (reservationRepository.existsByScheduledDateAndStatusIn(scheduledDate, ACTIVE_STATUSES)) {
 			throw new ReservationDateUnavailableException();
 		}
 		try {
@@ -54,6 +59,13 @@ public class ReservationService {
 				throw new ReservationDateUnavailableException();
 			}
 			throw exception;
+		}
+	}
+
+	/** 대한민국 날짜를 기준으로 오늘은 허용하고 과거 날짜만 거부합니다. */
+	private void validateNotPastDate(LocalDate scheduledDate) {
+		if (scheduledDate.isBefore(LocalDate.now(koreaClock))) {
+			throw new ReservationPastDateException();
 		}
 	}
 
@@ -70,12 +82,12 @@ public class ReservationService {
 		return false;
 	}
 
-	/** 선택 가능한 날짜를 달력에 표시하도록 해당 월의 모든 날짜와 예약 여부를 함께 반환합니다. */
+	/** 선택 가능한 날짜를 달력에 표시하도록 대한민국 기준 해당 월의 날짜와 활성 예약 여부를 반환합니다. */
 	@Transactional(readOnly = true)
 	public List<ReservationAvailabilityResponse> getMonthlyAvailability(int year, int month) {
 		LocalDate firstDate = LocalDate.of(year, month, 1);
 		LocalDate lastDate = firstDate.withDayOfMonth(firstDate.lengthOfMonth());
-		Set<LocalDate> occupiedDates = Set.copyOf(reservationRepository.findOccupiedDatesBetween(firstDate, lastDate));
+		Set<LocalDate> occupiedDates = Set.copyOf(reservationRepository.findOccupiedDatesBetween(firstDate, lastDate, ACTIVE_STATUSES));
 		return firstDate.datesUntil(lastDate.plusDays(1))
 			.map(date -> new ReservationAvailabilityResponse(date, !occupiedDates.contains(date)))
 			.toList();
@@ -104,9 +116,21 @@ public class ReservationService {
 		// 관리자 확인 → 예약 조회 → 상태 변경 및 감사 시각 반영 → 응답 변환 순서로 처리합니다.
 		validateAdmin(findMember(adminId));
 		Reservation reservation = findReservation(reservationId);
+		// 비활성 예약을 다시 활성화할 때 기존 활성 예약과 날짜가 겹치는지 먼저 검사합니다.
+		if (ACTIVE_STATUSES.contains(status) && !ACTIVE_STATUSES.contains(reservation.getStatus())
+			&& reservationRepository.existsByScheduledDateAndStatusIn(reservation.getScheduledDate(), ACTIVE_STATUSES)) {
+			throw new ReservationDateUnavailableException();
+		}
 		reservation.updateStatus(status);
 		// 응답 전에 변경 감지를 실행해 AuditingEntityListener가 기록한 수정 시각을 포함합니다.
-		reservationRepository.flush();
+		try {
+			reservationRepository.flush();
+		} catch (DataIntegrityViolationException exception) {
+			if (isScheduledDateUniqueConstraintViolation(exception)) {
+				throw new ReservationDateUnavailableException();
+			}
+			throw exception;
+		}
 		return toResponse(reservation);
 	}
 

@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Year;
+import java.time.Clock;
+import java.time.ZoneId;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +26,8 @@ import com.cleaner.be.auth.MemberRepository;
 /** 월별 예약 가능성 API가 연월 범위를 HTTP 경계에서 검증하는지 확인합니다. */
 @SpringBootTest
 class ReservationAvailabilityValidationTest {
+
+	private static final Clock KOREA_CLOCK = Clock.system(ZoneId.of("Asia/Seoul"));
 
 	private MockMvc mockMvc;
 	private String accessToken;
@@ -54,7 +58,7 @@ class ReservationAvailabilityValidationTest {
 	/** 현재 연도 기준 허용 범위의 양 끝을 포함해 기존 월별 조회 흐름이 유지되는지 확인합니다. */
 	@Test
 	void acceptedYearAndMonthReturnMonthlyAvailability() throws Exception {
-		int currentYear = Year.now().getValue();
+		int currentYear = Year.now(KOREA_CLOCK).getValue();
 		assertAcceptedMonth(Integer.toString(currentYear - 3), "1", 31);
 		assertAcceptedMonth(Integer.toString(currentYear), "5", 31);
 		assertAcceptedMonth(Integer.toString(currentYear + 3), "12", 31);
@@ -63,7 +67,7 @@ class ReservationAvailabilityValidationTest {
 	/** 현재 연도 기준 ±3년 또는 월 1~12의 허용 범위를 벗어나면 HTTP 400을 반환합니다. */
 	@Test
 	void outOfRangeYearOrMonthReturnsBadRequest() throws Exception {
-		int currentYear = Year.now().getValue();
+		int currentYear = Year.now(KOREA_CLOCK).getValue();
 		assertBadRequest(Integer.toString(currentYear - 4), "5");
 		assertBadRequest(Integer.toString(currentYear + 4), "5");
 		assertBadRequest(Integer.toString(currentYear), "0");
@@ -72,7 +76,7 @@ class ReservationAvailabilityValidationTest {
 
 	/** 연월 파라미터를 변경해 검증 실패가 400으로 매핑되는지 확인합니다. */
 	private void assertBadRequest(String year, String month) throws Exception {
-		int currentYear = Year.now().getValue();
+		int currentYear = Year.now(KOREA_CLOCK).getValue();
 		int requestedYear = Integer.parseInt(year);
 		String expectedMessage = requestedYear < currentYear - 3 || requestedYear > currentYear + 3
 			? "예약 조회 연도는 " + (currentYear - 3) + "년부터 " + (currentYear + 3) + "년까지 선택할 수 있습니다."

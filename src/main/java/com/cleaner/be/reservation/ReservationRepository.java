@@ -1,6 +1,7 @@
 package com.cleaner.be.reservation;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -21,10 +22,11 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	@EntityGraph(attributePaths = "member")
 	Page<Reservation> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
-	/** 달력에 표시할 수 있도록 예약된 날짜만 월 범위로 조회하고 개인정보가 포함된 예약 정보는 반환하지 않습니다. */
-	@Query("select r.scheduledDate from Reservation r where r.scheduledDate between :startDate and :endDate")
-	List<LocalDate> findOccupiedDatesBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+	/** 달력에 표시할 수 있도록 활성 예약 날짜만 월 범위로 조회하고 개인정보를 반환하지 않습니다. */
+	@Query("select distinct r.scheduledDate from Reservation r where r.scheduledDate between :startDate and :endDate and r.status in :statuses")
+	List<LocalDate> findOccupiedDatesBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
+		@Param("statuses") Collection<ReservationStatus> statuses);
 
-	/** 예약 생성 직전에도 같은 날짜의 예약을 다시 확인하여 달력 조회와 생성 요청 사이의 중복을 차단합니다. */
-	boolean existsByScheduledDate(LocalDate scheduledDate);
+	/** 날짜와 활성 상태를 함께 검사해 거절·취소된 예약은 달력 마감에서 제외합니다. */
+	boolean existsByScheduledDateAndStatusIn(LocalDate scheduledDate, Collection<ReservationStatus> statuses);
 }

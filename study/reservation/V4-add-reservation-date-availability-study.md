@@ -49,6 +49,24 @@ HAVING COUNT(*) > 1;
 
 인덱스는 `scheduled_date`와 `status` 순서로 구성됩니다. 현재 repository의 월별 조회는 `scheduled_date` 범위 조건을 사용하며, 실제 실행 계획과 인덱스 활용은 DB 엔진이 결정합니다. 현재 JPQL 날짜 조회에는 상태 조건이 없으므로 이 인덱스의 두 번째 컬럼이 모든 쿼리에 사용된다고 단정하지 않습니다.
 
-## 7. 요약
+## 7. V5/V6에서 활성 예약만 날짜를 점유하도록 변경
+
+[`V5__allow_rebooking_inactive_reservation_dates.sql`](../../src/main/resources/db/migration/V5__allow_rebooking_inactive_reservation_dates.sql)은 `CREATE UNIQUE INDEX CONCURRENTLY`로 `uk_reservations_active_scheduled_date` 부분 고유 인덱스를 추가합니다. 인덱스 조건은 `PENDING`, `APPROVED`만 포함하므로 이 인덱스 자체는 `REJECTED`, `CANCELLED`, 기존 호환 상태인 `CANCELED`, `COMPLETED` 상태를 제외합니다. 다만 V5가 적용된 직후에는 V4의 전체 날짜 고유 제약 `uk_reservations_scheduled_date`가 아직 남아 있어 비활성 예약 날짜의 재예약은 계속 제한됩니다.
+
+[`V6__drop_reservation_date_unique_constraint.sql`](../../src/main/resources/db/migration/V6__drop_reservation_date_unique_constraint.sql)은 `ALTER TABLE reservations DROP CONSTRAINT uk_reservations_scheduled_date`로 V4의 전체 날짜 고유 제약을 제거합니다. 따라서 V5 부분 고유 인덱스 생성과 V6 제약 제거가 모두 완료된 뒤에야 취소·거절된 예약 날짜를 다시 예약할 수 있는 구조가 완성됩니다.
+
+서비스 조회도 같은 활성 상태만 대상으로 하며, 관리자 상태 변경으로 예약을 다시 활성화할 때 기존 날짜 예약을 먼저 확인합니다. 조회 후 상태 변경과 동시에 다른 요청이 진행되더라도 부분 고유 인덱스가 최종 중복을 차단합니다. 생성 및 상태 변경은 해당 인덱스 위반을 HTTP 409 날짜 마감 응답으로 변환합니다.
+
+## 8. 마이그레이션 실패 시 확인 순서
+
+V5의 `CREATE INDEX CONCURRENTLY`는 트랜잭션 안에서 실행할 수 없으므로, 같은 migration 이름의 [`V5__allow_rebooking_inactive_reservation_dates.sql.conf`](../../src/main/resources/db/migration/V5__allow_rebooking_inactive_reservation_dates.sql.conf)에 `executeInTransaction=false`를 설정해 V5 SQL을 트랜잭션 밖에서 실행합니다. 이 파일은 해당 마이그레이션에만 적용됩니다. 별도로 `spring.flyway.postgresql.transactional-lock: false`는 Flyway PostgreSQL 잠금을 트랜잭션 범위가 아닌 세션 수준으로 바꾸는 설정이며, SQL 마이그레이션의 트랜잭션 실행 여부를 변경하지 않습니다. 실패한 인덱스가 남을 수 있으므로 배포를 중단하고 Flyway 실패 이력과 인덱스의 유효 상태를 먼저 확인해야 합니다.
+
+1. `flyway info`와 운영용 실패 복구 문서의 이력 조회 SQL로 V5/V6 상태를 확인합니다.
+2. PostgreSQL 카탈로그에서 `uk_reservations_active_scheduled_date`가 존재하는지와 `indisvalid`, `indisready`, 정의를 확인합니다.
+3. 해당 인덱스가 실제로 invalid인 경우에만, 확인한 스키마와 정확한 인덱스 이름을 사용해 트랜잭션 밖에서 `DROP INDEX CONCURRENTLY`로 제거합니다. 유효한 인덱스는 임의로 삭제하거나 재시도하지 않습니다.
+4. DB 상태를 다시 확인하고 필요한 경우에만 `flyway repair`로 실패 이력을 정리합니다. `repair`는 invalid 인덱스를 삭제하지 않습니다.
+5. 확인 SQL과 분기별 조치는 [Flyway 예약 마이그레이션 실패 복구 절차](../../docs/flyway-reservation-migration-recovery.md)를 따릅니다. 필요한 마이그레이션만 복구 후 재시도하고, V5 인덱스가 유효하며 V6의 기존 고유 제약이 제거되고 Flyway 이력과 일치하는 것을 확인한 뒤 배포를 재개합니다.
+
+## 9. 요약
 
 예약 날짜 컬럼을 기존 데이터에서 채우고 필수·고유 제약 및 복합 인덱스를 추가하여 날짜별 중복 방지와 달력 조회를 DB 스키마에 반영합니다.

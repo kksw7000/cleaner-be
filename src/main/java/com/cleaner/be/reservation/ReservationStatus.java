@@ -4,6 +4,9 @@ package com.cleaner.be.reservation;
 public enum ReservationStatus {
 	PENDING,
 	APPROVED,
+	REJECTED,
+	CANCELLED,
 	COMPLETED,
+	/** 기존 API 값과 DB 데이터를 호환하기 위해 유지하는 취소 상태입니다. */
 	CANCELED
 }
