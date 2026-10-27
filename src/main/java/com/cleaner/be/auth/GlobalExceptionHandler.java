@@ -16,6 +16,7 @@ import com.cleaner.be.reservation.ReservationNotFoundException;
 import com.cleaner.be.reservation.ReservationDateUnavailableException;
 import com.cleaner.be.reservation.ReservationYearOutOfRangeException;
 import com.cleaner.be.reservation.ReservationPastDateException;
+import com.cleaner.be.notification.NotificationNotFoundException;
 
 import jakarta.validation.ConstraintViolationException;
 
@@ -61,8 +62,9 @@ public class GlobalExceptionHandler {
 		return Map.of("message", exception.getMessage());
 	}
 
-	/** 게시글·댓글·예약 미존재 예외를 공통 404 응답으로 변환합니다. */
-	@ExceptionHandler({BoardNotFoundException.class, CommentNotFoundException.class, ReservationNotFoundException.class})
+	/** 게시글·댓글·예약·알림 미존재 예외를 공통 404 응답으로 변환합니다. */
+	@ExceptionHandler({BoardNotFoundException.class, CommentNotFoundException.class, ReservationNotFoundException.class,
+		NotificationNotFoundException.class})
 	@ResponseStatus(HttpStatus.NOT_FOUND)
 	public Map<String, String> handleNotFound(RuntimeException exception) {
 		return Map.of("message", exception.getMessage());

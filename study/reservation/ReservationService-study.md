@@ -217,4 +217,4 @@ Controller가 인증된 ID와 `@Valid` 검증 요청을 전달하는 형태입�
 
 현재 구현은 `Asia/Seoul`의 오늘 날짜보다 앞선 예약을 거부하며 오늘은 시각과 관계없이 허용합니다. 생성 사전 조회와 달력 월 조회는 `PENDING`, `APPROVED` 상태만 활성으로 계산합니다. PostgreSQL 부분 고유 인덱스 `uk_reservations_active_scheduled_date`가 같은 날짜의 동시 요청을 최종 차단합니다.
 
-관리자 상태 변경도 비활성 예약을 `PENDING` 또는 `APPROVED`로 다시 바꾸기 전에 날짜 충돌을 검사합니다. 검사 이후 경쟁 요청이 먼저 활성화되는 경우에도 같은 인덱스 위반을 날짜 마감 HTTP 409로 변환합니다. `REJECTED`, `CANCELLED`를 새 상태로 지원하고 기존 API 호환을 위해 `CANCELED` 값은 유지합니다.
+관리자 상태 변경도 비활성 예약을 `PENDING` 또는 `APPROVED`로 다시 바꾸기 전에 날짜 충돌을 검사합니다. 검사 이후 경쟁 요청이 먼저 활성화되는 경우에도 같은 인덱스 위반을 날짜 마감 HTTP 409로 변환합니다. `REJECTED`, `CANCELLED`를 새 상태로 지원하고 기존 API 호환을 위해 `CANCELED` 값은 유지합니다. 예약 접수와 실제 상태 변경은 회원 알림으로 저장하고, 관리자가 예약을 삭제할 때는 예약 참조를 비운 “예약이 삭제되었습니다” 알림을 먼저 보존합니다. 알림 목록과 회원 소유 검사는 [`Notification`](../notification/Notification-study.md) 학습 가이드에서 설명합니다.
