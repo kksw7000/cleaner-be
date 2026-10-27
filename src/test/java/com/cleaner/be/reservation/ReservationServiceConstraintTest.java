@@ -19,6 +19,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com.cleaner.be.auth.Member;
 import com.cleaner.be.auth.MemberRepository;
+import com.cleaner.be.notification.NotificationService;
 import com.cleaner.be.reservation.dto.ReservationCreateRequest;
 
 /** 예약 생성은 날짜 고유 제약만 도메인 충돌로 변환하고 다른 DB 오류는 보존하는지 확인합니다. */
@@ -28,6 +29,7 @@ class ReservationServiceConstraintTest {
 
 	private ReservationRepository reservationRepository;
 	private MemberRepository memberRepository;
+	private NotificationService notificationService;
 	private ReservationService reservationService;
 
 	/** 저장 경계의 예외 처리만 독립적으로 검증하도록 repository 의존성을 대역으로 준비합니다. */
@@ -35,7 +37,8 @@ class ReservationServiceConstraintTest {
 	void setUp() {
 		reservationRepository = mock(ReservationRepository.class);
 		memberRepository = mock(MemberRepository.class);
-		reservationService = new ReservationService(reservationRepository, memberRepository, FIXED_CLOCK);
+		notificationService = mock(NotificationService.class);
+		reservationService = new ReservationService(reservationRepository, memberRepository, notificationService, FIXED_CLOCK);
 		when(memberRepository.findById(1L)).thenReturn(Optional.of(mock(Member.class)));
 		when(reservationRepository.existsByScheduledDateAndStatusIn(any(), any())).thenReturn(false);
 	}

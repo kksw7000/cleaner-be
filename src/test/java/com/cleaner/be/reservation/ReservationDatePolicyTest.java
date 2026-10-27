@@ -3,6 +3,7 @@ package com.cleaner.be.reservation;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.Test;
 
 import com.cleaner.be.auth.Member;
 import com.cleaner.be.auth.MemberRepository;
+import com.cleaner.be.notification.NotificationService;
+import com.cleaner.be.notification.NotificationType;
 import com.cleaner.be.reservation.dto.ReservationCreateRequest;
 
 /** 예약 날짜 정책이 한국 날짜와 활성 상태 조회를 기준으로 동작하는지 확인합니다. */
@@ -28,6 +31,7 @@ class ReservationDatePolicyTest {
 
 	private ReservationRepository reservationRepository;
 	private MemberRepository memberRepository;
+	private NotificationService notificationService;
 	private ReservationService reservationService;
 
 	/** 예약 저장 경계와 회원 조회를 대역으로 만들어 날짜 규칙만 검증합니다. */
@@ -35,7 +39,8 @@ class ReservationDatePolicyTest {
 	void setUp() {
 		reservationRepository = mock(ReservationRepository.class);
 		memberRepository = mock(MemberRepository.class);
-		reservationService = new ReservationService(reservationRepository, memberRepository, FIXED_CLOCK);
+		notificationService = mock(NotificationService.class);
+		reservationService = new ReservationService(reservationRepository, memberRepository, notificationService, FIXED_CLOCK);
 		when(memberRepository.findById(1L)).thenReturn(Optional.of(mock(Member.class)));
 		when(reservationRepository.existsByScheduledDateAndStatusIn(any(), anyCollection())).thenReturn(false);
 		when(reservationRepository.saveAndFlush(any(Reservation.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -50,6 +55,8 @@ class ReservationDatePolicyTest {
 
 		verify(reservationRepository).existsByScheduledDateAndStatusIn(today,
 			java.util.List.of(ReservationStatus.PENDING, ReservationStatus.APPROVED));
+		verify(notificationService).create(any(Member.class), any(Reservation.class), eq(NotificationType.RESERVATION_RECEIVED),
+			eq("예약 요청이 접수되었습니다."));
 	}
 
 	/** 대한민국 어제 날짜는 데이터베이스 조회나 저장 전에 예약 요청을 거부합니다. */

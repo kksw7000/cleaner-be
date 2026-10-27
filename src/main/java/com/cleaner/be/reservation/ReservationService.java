@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.cleaner.be.auth.Member;
 import com.cleaner.be.auth.MemberRepository;
 import com.cleaner.be.auth.Role;
+import com.cleaner.be.notification.NotificationService;
+import com.cleaner.be.notification.NotificationType;
 import com.cleaner.be.reservation.dto.ReservationCreateRequest;
 import com.cleaner.be.reservation.dto.ReservationAvailabilityResponse;
 import com.cleaner.be.reservation.dto.ReservationPageResponse;
@@ -30,11 +32,14 @@ public class ReservationService {
 
 	private final ReservationRepository reservationRepository;
 	private final MemberRepository memberRepository;
+	private final NotificationService notificationService;
 	private final Clock koreaClock;
 
-	public ReservationService(ReservationRepository reservationRepository, MemberRepository memberRepository, Clock koreaClock) {
+	public ReservationService(ReservationRepository reservationRepository, MemberRepository memberRepository,
+		NotificationService notificationService, Clock koreaClock) {
 		this.reservationRepository = reservationRepository;
 		this.memberRepository = memberRepository;
+		this.notificationService = notificationService;
 		this.koreaClock = koreaClock;
 	}
 
@@ -52,6 +57,7 @@ public class ReservationService {
 		try {
 			Reservation reservation = reservationRepository.saveAndFlush(new Reservation(request.serviceCategory(), request.scheduledAt(),
 				request.address().trim(), request.contactName().trim(), request.contactPhone().trim(), normalizeNote(request.requestNote()), member));
+			notificationService.create(member, reservation, NotificationType.RESERVATION_RECEIVED, "예약 요청이 접수되었습니다.");
 			return toResponse(reservation);
 		} catch (DataIntegrityViolationException exception) {
 			// 날짜 고유 제약 위반만 예약 충돌로 바꾸고, 회원 FK 등 다른 데이터 오류는 원래 원인을 유지합니다.
@@ -113,9 +119,10 @@ public class ReservationService {
 	/** 관리자 권한을 확인한 뒤 예약 상태만 변경해 회원이 승인·완료 처리를 임의로 수행하지 못하게 합니다. */
 	@Transactional
 	public ReservationResponse updateStatusByAdmin(Long reservationId, Long adminId, ReservationStatus status) {
-		// 관리자 확인 → 예약 조회 → 상태 변경 및 감사 시각 반영 → 응답 변환 순서로 처리합니다.
+		// 관리자 확인 → 예약 조회 → 상태 변경 및 감사 시각 반영 → 알림 저장 → 응답 변환 순서로 처리합니다.
 		validateAdmin(findMember(adminId));
 		Reservation reservation = findReservation(reservationId);
+		ReservationStatus previousStatus = reservation.getStatus();
 		// 비활성 예약을 다시 활성화할 때 기존 활성 예약과 날짜가 겹치는지 먼저 검사합니다.
 		if (ACTIVE_STATUSES.contains(status) && !ACTIVE_STATUSES.contains(reservation.getStatus())
 			&& reservationRepository.existsByScheduledDateAndStatusIn(reservation.getScheduledDate(), ACTIVE_STATUSES)) {
@@ -131,7 +138,43 @@ public class ReservationService {
 			}
 			throw exception;
 		}
+		if (previousStatus != status) {
+			NotificationType notificationType = notificationTypeFor(status);
+			notificationService.create(reservation.getMember(), reservation, notificationType, messageFor(status));
+		}
 		return toResponse(reservation);
+	}
+
+	/** 관리자 예약 삭제 시 먼저 알림을 영속화하고 예약 FK는 마이그레이션의 SET NULL로 보존합니다. */
+	@Transactional
+	public void deleteReservationByAdmin(Long reservationId, Long adminId) {
+		validateAdmin(findMember(adminId));
+		Reservation reservation = findReservation(reservationId);
+		notificationService.create(reservation.getMember(), null, NotificationType.RESERVATION_DELETED, "예약이 삭제되었습니다.");
+		reservationRepository.delete(reservation);
+		reservationRepository.flush();
+	}
+
+	/** 예약 상태를 회원 알림 유형으로 변환해 상태가 바뀔 때마다 알맞은 메시지를 선택합니다. */
+	private NotificationType notificationTypeFor(ReservationStatus status) {
+		return switch (status) {
+			case PENDING -> NotificationType.RESERVATION_RECEIVED;
+			case APPROVED -> NotificationType.RESERVATION_APPROVED;
+			case REJECTED -> NotificationType.RESERVATION_REJECTED;
+			case CANCELLED, CANCELED -> NotificationType.RESERVATION_CANCELLED;
+			case COMPLETED -> NotificationType.RESERVATION_COMPLETED;
+		};
+	}
+
+	/** 현재 상태의 의미를 짧은 웹 알림 문구로 변환해 프론트엔드가 바로 표시하게 합니다. */
+	private String messageFor(ReservationStatus status) {
+		return switch (status) {
+			case PENDING -> "예약 요청이 접수되었습니다.";
+			case APPROVED -> "예약이 확정되었습니다.";
+			case REJECTED -> "예약이 거절되었습니다.";
+			case CANCELLED, CANCELED -> "예약이 취소되었습니다.";
+			case COMPLETED -> "예약이 완료되었습니다.";
+		};
 	}
 
 	/** 잘못된 인증 ID는 예약 작업에 사용할 수 없으므로 권한 예외로 변환합니다. */
