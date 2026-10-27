@@ -23,10 +23,14 @@ public class NotificationStreamService {
 
 	private final ConcurrentMap<Long, Set<SseEmitter>> emittersByMember = new ConcurrentHashMap<>();
 
-	/** 인증된 회원의 연결을 등록하고 브라우저가 스트림을 식별할 수 있도록 연결 이벤트를 보냅니다. */
+	/** 인증된 회원의 연결을 원자적으로 등록해 동시 종료 정리와 경합해도 누락되지 않게 하고 연결 이벤트를 보냅니다. */
 	public SseEmitter subscribe(Long memberId) throws IOException {
 		SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MILLIS);
-		emittersByMember.computeIfAbsent(memberId, ignored -> ConcurrentHashMap.newKeySet()).add(emitter);
+		emittersByMember.compute(memberId, (ignored, emitters) -> {
+			Set<SseEmitter> memberEmitters = emitters == null ? ConcurrentHashMap.newKeySet() : emitters;
+			memberEmitters.add(emitter);
+			return memberEmitters;
+		});
 		emitter.onCompletion(() -> remove(memberId, emitter));
 		emitter.onTimeout(() -> {
 			remove(memberId, emitter);
