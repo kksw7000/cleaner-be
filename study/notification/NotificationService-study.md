@@ -27,15 +27,21 @@ public Notification create(Member member, Reservation reservation, NotificationT
 
 ### 실행 순서
 
-1. **생성 시각을 정합니다.** `Clock`을 주입받아 `LocalDateTime.now(koreaClock)`을 사용합니다. 시스템 시각을 코드 곳곳에서 직접 읽지 않아 테스트에서 고정 시각을 사용할 수 있습니다.
+1. **알림 생성 시각을 정합니다.** `Clock`을 주입받아 `LocalDateTime.now(koreaClock)`을 호출합니다. 이 시각은 예약 자체의 날짜(`scheduledAt`)가 아니라, 예약 접수·상태 변경·삭제 같은 처리가 `NotificationService.create`에 도달해 알림을 만드는 시점입니다. 또한 SSE 전송 시각, 사용자가 읽은 시각과도 다릅니다. 애플리케이션의 `koreaClock`은 `Asia/Seoul` 시간대를 사용하며, 이 방식은 테스트에서 고정 시각을 주입할 수 있게 합니다.
 2. **엔티티를 만들고 저장소에 전달합니다.** `new Notification(...)`에 회원, 예약, 유형, 문구, 생성 시각을 넣은 뒤 `saveAndFlush`를 호출합니다.
-3. **DB에 SQL을 반영하고 생성된 ID를 확보합니다.** `flush`는 영속성 컨텍스트의 변경 내용을 DB에 보내므로 identity 방식으로 생성된 알림 ID를 이벤트 payload에 넣을 수 있습니다. 다만 `flush`는 트랜잭션 커밋이 아닙니다. 이후 트랜잭션이 롤백되면 이 알림 저장도 취소됩니다.
+3. **DB에 SQL을 반영하고 생성된 ID를 확보합니다.** `flush`는 영속성 컨텍스트의 변경 내용을 DB에 보내므로 identity 방식으로 생성된 알림 ID를 이벤트 payload에 넣을 수 있습니다. `createdAt`은 이 저장 전에 1단계에서 정한 시각으로 기록되며, 엔티티에서도 생성 후 변경할 수 없게 설정되어 있습니다. 다만 `flush`는 트랜잭션 커밋이 아닙니다. 이후 트랜잭션이 롤백되면 이 알림과 생성 시각도 DB에 남지 않습니다.
 4. **SSE 전송용 응답 데이터를 만듭니다.** `toResponse(notification)`가 엔티티를 `NotificationResponse`로 바꿉니다. JPA 엔티티 전체를 이벤트로 노출하는 대신 화면에 필요한 필드와 생성된 알림 ID만 전달합니다.
 5. **애플리케이션 이벤트를 발행합니다.** `NotificationCreatedEvent`에 수신 회원 ID와 응답 데이터를 담아 `ApplicationEventPublisher`에 전달합니다. `publishEvent` 호출 자체는 이벤트를 Spring 내부에 알리는 것이며, 이 시점에 브라우저로 SSE를 보내는 것은 아닙니다.
 6. **업무 트랜잭션이 끝납니다.** 예약 생성·상태 변경 같은 호출 경로에서는 `create`가 예약 서비스의 트랜잭션에 참여합니다. 따라서 예약 변경과 알림 저장이 함께 커밋되거나, 실패 시 함께 롤백됩니다.
 7. **커밋 성공 뒤 SSE를 보냅니다.** [`NotificationStreamService`](NotificationStreamService-study.md)의 이벤트 리스너는 `@TransactionalEventListener(phase = AFTER_COMMIT)`으로 등록되어 있습니다. 트랜잭션이 커밋된 다음에만 해당 회원의 열린 SSE 연결로 `notification` 이벤트를 보냅니다. 롤백된 예약이나 알림은 실시간 이벤트로 전달되지 않습니다.
 
 여기서 `@Transactional`은 기본 전파 방식으로 이미 진행 중인 업무 트랜잭션에 참여합니다. `create`가 기존 트랜잭션 안에서 호출되면 메서드가 끝나는 순간 별도로 커밋하는 것이 아니라, 바깥 트랜잭션이 최종 커밋될 때 함께 확정됩니다. 트랜잭션 없이 호출되는 경우에는 이 메서드의 트랜잭션이 저장과 이벤트 리스너의 커밋 기준이 됩니다.
+
+### 생성 시각은 어디에 사용되는가
+
+저장된 `createdAt`은 알림이 발생한 순서를 사용자에게 보여주는 기준입니다. 홈 미리보기는 `createdAt` 내림차순으로 최신 세 건을 선택하고, 알림 보관 목록도 같은 순서로 페이지를 나눕니다. 생성 시각이 같은 경우에는 알림 ID 내림차순으로 정렬해 결과 순서를 안정적으로 결정합니다.
+
+`createdAt`은 알림을 만든 시각을 나타내고, `readAt`은 회원이 알림을 처음 확인한 시각을 나타냅니다. 알림 생성 직후 아직 읽지 않았다면 `readAt`은 `null`입니다. 읽음 처리 API가 호출되면 별도로 현재 한국 시각을 기록하며, 이미 값이 있으면 최초 읽음 시각을 유지합니다. 생성 시각은 응답 DTO와 SSE 알림 데이터에도 포함되므로 화면에서 보관 내역의 시각을 표시하는 데 사용할 수 있습니다.
 
 ### 왜 저장과 이벤트를 같이 사용하는가
 
@@ -51,7 +57,7 @@ DB 저장은 알림 내역의 영구 기준 데이터이고, 이벤트는 현재
 
 ## 4. 시간과 응답 변환
 
-`Clock`을 주입받아 `LocalDateTime.now(koreaClock)`으로 생성·읽음 시각을 구합니다. 고정 시계를 테스트에 주입할 수 있어 시간 검증을 결정적으로 수행할 수 있습니다. `toResponse`는 엔티티를 API DTO로 변환하고 예약이 삭제되어 참조가 비어 있으면 `reservationId`를 `null`로 반환합니다.
+`Clock`을 주입받아 `LocalDateTime.now(koreaClock)`으로 알림 생성 시각과 읽음 처리 시각을 각각 구합니다. 두 시각은 별도 필드이며, 생성 시각은 알림이 만들어진 순서를 정하고 읽음 시각은 회원의 확인 여부를 나타냅니다. 고정 시계를 테스트에 주입할 수 있어 시간 검증을 결정적으로 수행할 수 있습니다. `toResponse`는 두 시각을 포함한 엔티티 데이터를 API DTO로 변환하고 예약이 삭제되어 참조가 비어 있으면 `reservationId`를 `null`로 반환합니다.
 
 ## 5. 실제 실행 흐름
 
