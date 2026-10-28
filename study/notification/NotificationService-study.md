@@ -9,14 +9,37 @@
 ```java
 @Transactional
 public Notification create(Member member, Reservation reservation, NotificationType type, String message) {
+	// 알림 생성 시각을 주입된 Clock 기준으로 정합니다.
 	Notification notification = notificationRepository.saveAndFlush(
 		new Notification(member, reservation, type, message, LocalDateTime.now(koreaClock)));
+	// 회원 ID와 API 응답 형태의 알림 데이터를 담아 애플리케이션 이벤트를 발행합니다.
 	eventPublisher.publishEvent(new NotificationCreatedEvent(member.getId(), toResponse(notification)));
 	return notification;
 }
 ```
 
-먼저 알림을 저장하고 생성된 ID를 포함한 응답 데이터로 애플리케이션 이벤트를 발행합니다. 이 메서드는 예약 서비스의 트랜잭션 안에서 호출되므로 저장과 예약 상태 변경은 같은 트랜잭션에 참여합니다. 이벤트 수신부는 `AFTER_COMMIT` 단계로 제한되어 롤백된 알림이 SSE로 전송되지 않습니다.
+### 입력값은 어디서 오는가
+
+- `member`: 알림을 받을 회원입니다. 예약 서비스가 예약 소유 회원을 전달합니다.
+- `reservation`: 관련 예약입니다. 예약 접수나 상태 변경 알림은 예약을 연결하고, 예약 삭제 알림은 삭제될 예약을 참조하지 않도록 `null`을 전달합니다.
+- `type`: 예약 접수·확정·거절·취소·완료·삭제 중 어떤 알림인지 나타내는 [`NotificationType`](NotificationType-study.md) 값입니다.
+- `message`: 화면에 표시할 문구입니다. 이 메서드는 문구를 새로 만들지 않고 호출자가 전달한 값을 저장합니다.
+
+### 실행 순서
+
+1. **생성 시각을 정합니다.** `Clock`을 주입받아 `LocalDateTime.now(koreaClock)`을 사용합니다. 시스템 시각을 코드 곳곳에서 직접 읽지 않아 테스트에서 고정 시각을 사용할 수 있습니다.
+2. **엔티티를 만들고 저장소에 전달합니다.** `new Notification(...)`에 회원, 예약, 유형, 문구, 생성 시각을 넣은 뒤 `saveAndFlush`를 호출합니다.
+3. **DB에 SQL을 반영하고 생성된 ID를 확보합니다.** `flush`는 영속성 컨텍스트의 변경 내용을 DB에 보내므로 identity 방식으로 생성된 알림 ID를 이벤트 payload에 넣을 수 있습니다. 다만 `flush`는 트랜잭션 커밋이 아닙니다. 이후 트랜잭션이 롤백되면 이 알림 저장도 취소됩니다.
+4. **SSE 전송용 응답 데이터를 만듭니다.** `toResponse(notification)`가 엔티티를 `NotificationResponse`로 바꿉니다. JPA 엔티티 전체를 이벤트로 노출하는 대신 화면에 필요한 필드와 생성된 알림 ID만 전달합니다.
+5. **애플리케이션 이벤트를 발행합니다.** `NotificationCreatedEvent`에 수신 회원 ID와 응답 데이터를 담아 `ApplicationEventPublisher`에 전달합니다. `publishEvent` 호출 자체는 이벤트를 Spring 내부에 알리는 것이며, 이 시점에 브라우저로 SSE를 보내는 것은 아닙니다.
+6. **업무 트랜잭션이 끝납니다.** 예약 생성·상태 변경 같은 호출 경로에서는 `create`가 예약 서비스의 트랜잭션에 참여합니다. 따라서 예약 변경과 알림 저장이 함께 커밋되거나, 실패 시 함께 롤백됩니다.
+7. **커밋 성공 뒤 SSE를 보냅니다.** [`NotificationStreamService`](NotificationStreamService-study.md)의 이벤트 리스너는 `@TransactionalEventListener(phase = AFTER_COMMIT)`으로 등록되어 있습니다. 트랜잭션이 커밋된 다음에만 해당 회원의 열린 SSE 연결로 `notification` 이벤트를 보냅니다. 롤백된 예약이나 알림은 실시간 이벤트로 전달되지 않습니다.
+
+여기서 `@Transactional`은 기본 전파 방식으로 이미 진행 중인 업무 트랜잭션에 참여합니다. `create`가 기존 트랜잭션 안에서 호출되면 메서드가 끝나는 순간 별도로 커밋하는 것이 아니라, 바깥 트랜잭션이 최종 커밋될 때 함께 확정됩니다. 트랜잭션 없이 호출되는 경우에는 이 메서드의 트랜잭션이 저장과 이벤트 리스너의 커밋 기준이 됩니다.
+
+### 왜 저장과 이벤트를 같이 사용하는가
+
+DB 저장은 알림 내역의 영구 기준 데이터이고, 이벤트는 현재 연결된 브라우저에 빠르게 알리는 전달 경로입니다. SSE 연결이 없거나 브라우저가 오프라인이어도 알림은 저장되어 있으므로 재연결 후 `GET /api/notifications/home` 또는 `GET /api/notifications`로 조회할 수 있습니다. 반대로 DB 저장 전에 SSE부터 보내면 나중에 트랜잭션이 실패했을 때 실제로 존재하지 않는 알림이 화면에 보일 수 있으므로, 이 구현은 커밋 이후 전송을 사용합니다.
 
 ## 3. 조회와 읽음 규칙
 
