@@ -12,6 +12,10 @@ spring:
   flyway:
     baseline-version: 3
     baseline-on-migrate: false
+    # 프로필별 경로에서 빠진 반복 및 미래 버전 마이그레이션을 무시하므로 누락 여부를 별도로 확인해야 합니다.
+    ignore-migration-patterns:
+      - repeatable:missing
+      - "*:future"
     postgresql:
       transactional-lock: false
   jpa:
@@ -26,3 +30,7 @@ jwt:
   refresh-token-validity: P14D
   refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE}
   refresh-cookie-same-site: ${JWT_REFRESH_COOKIE_SAME_SITE}
+
+google:
+  client-id: ${GOOGLE_CLIENT_ID}
+  client-secret: ${GOOGLE_CLIENT_SECRET}

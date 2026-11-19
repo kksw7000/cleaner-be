@@ -3,6 +3,7 @@ package com.cleaner.be.auth;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -26,6 +27,17 @@ import jakarta.validation.ConstraintViolationException;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+	/** 요청 본문 검증 실패 시 첫 번째 필드 오류를 클라이언트가 안내할 수 있도록 반환합니다. */
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public Map<String, String> handleInvalidRequestBody(MethodArgumentNotValidException exception) {
+		String message = exception.getBindingResult().getFieldErrors().stream()
+			.findFirst()
+			.map(error -> error.getDefaultMessage())
+			.orElse("입력값을 확인해 주세요.");
+		return Map.of("message", message);
+	}
 
 	/** 이메일 중복 예외를 가입 요청의 충돌 상태와 일관된 메시지로 변환합니다. */
 	@ExceptionHandler(DuplicateEmailException.class)

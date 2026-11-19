@@ -2,6 +2,7 @@ spring:
   flyway:
     ignore-migration-patterns:
       - repeatable:missing
+      - "*:future"
     locations:
       - classpath:db/migration
       - classpath:db/seed
