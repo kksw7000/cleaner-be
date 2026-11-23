@@ -59,7 +59,13 @@ public class JwtTokenProvider {
 		// 한 번의 로그인 또는 갱신 요청에서 짧은 수명의 Access Token과 긴 수명의 Refresh Token을 함께 발급합니다.
 		String accessToken = createToken(member, "access", accessTokenValidity);
 		String refreshToken = createToken(member, "refresh", refreshTokenValidity);
-		return new IssuedTokens(new TokenResponse(accessToken, "Bearer", accessTokenValidity.toSeconds()), refreshToken);
+		// 로그인 직후 이메일 접두사 대체값이 보이지 않도록, DB에 저장된 이름을 토큰 응답에 함께 담습니다.
+		return new IssuedTokens(new TokenResponse(
+			accessToken,
+			"Bearer",
+			accessTokenValidity.toSeconds(),
+			member.getName()
+		), refreshToken);
 	}
 
 	/** Access Token만 필요한 경우에도 동일한 서명·만료 규칙으로 생성합니다. */

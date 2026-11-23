@@ -21,9 +21,9 @@ class AuthControllerSessionTest {
 		AuthService authService = mock(AuthService.class);
 		JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
 		Member member = mock(Member.class);
-		TokenResponse tokens = new TokenResponse("access", "Bearer", 1800L);
+		TokenResponse tokens = new TokenResponse("access", "Bearer", 1800L, "테스트 사용자", Role.USER);
 		LoginRequest request = new LoginRequest("login@example.com", "Password!1");
-		when(authService.login(request)).thenReturn(new LoginResponse(1L, "login@example.com", "name", "01012345678"));
+		when(authService.login(request)).thenReturn(new LoginResponse(1L, "login@example.com", "name"));
 		when(authService.getMember(1L)).thenReturn(member);
 		IssuedTokens issuedTokens = new IssuedTokens(tokens, "refresh");
 		when(tokenProvider.issueTokens(member)).thenReturn(issuedTokens);

@@ -61,7 +61,7 @@ public class AuthService {
 			phoneNumber
 		));
 		// 비밀번호를 응답에 포함하지 않고, 가입에 필요한 공개 정보만 반환합니다.
-		return new SignupResponse(member.getId(), member.getEmail(), member.getName(), member.getPhoneNumber());
+		return new SignupResponse(member.getId(), member.getEmail(), member.getName());
 	}
 
 	/**
@@ -82,7 +82,7 @@ public class AuthService {
 		validateNotSuspended(member);
 
 		// 인증에 성공해도 비밀번호(평문·해시 모두)는 클라이언트에 반환하지 않습니다.
-		return new LoginResponse(member.getId(), member.getEmail(), member.getName(), member.getPhoneNumber());
+		return new LoginResponse(member.getId(), member.getEmail(), member.getName());
 	}
 
 	/**

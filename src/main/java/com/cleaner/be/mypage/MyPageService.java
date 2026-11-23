@@ -83,6 +83,6 @@ public class MyPageService {
 
 	/** 엔티티 내부 인증 정보를 제외하고 마이페이지에 공개할 프로필 필드만 반환합니다. */
 	private MyPageResponse toResponse(Member member) {
-		return new MyPageResponse(member.getId(), member.getEmail(), member.getName(), member.getPhoneNumber());
+		return new MyPageResponse(member.getId(), member.getEmail(), member.getName(), member.getPhoneNumber(), member.getRole());
 	}
 }
