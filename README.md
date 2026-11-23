@@ -25,15 +25,17 @@ GOOGLE_CLIENT_SECRET=Google_OAuth_클라이언트_시크릿
 
 터미널에서 백엔드 폴더로 이동한 뒤 Gradle Wrapper로 Spring Boot를 실행합니다.
 
-```powershell
-cd be
+```
+powershell
+
 .\gradlew.bat bootRun
 ```
 
 macOS 또는 Linux에서는 다음 명령을 사용합니다.
 
-```bash
-cd be
+```
+bash
+
 ./gradlew bootRun
 ```
 
@@ -43,14 +45,18 @@ Gradle Wrapper가 필요한 Gradle 버전을 자동으로 준비하므로 별도
 
 Windows에서는 다음 명령으로 테스트를 포함해 빌드하고 JAR 파일을 실행할 수 있습니다.
 
-```powershell
+```
+powershell
+
 .\gradlew.bat clean build
 java -jar .\build\libs\be-0.0.1-SNAPSHOT.jar
 ```
 
 macOS 또는 Linux에서는 다음과 같이 실행합니다.
 
-```bash
+```
+bash
+
 ./gradlew clean build
 java -jar build/libs/be-0.0.1-SNAPSHOT.jar
 ```
