@@ -64,7 +64,8 @@ public class JwtTokenProvider {
 			accessToken,
 			"Bearer",
 			accessTokenValidity.toSeconds(),
-			member.getName()
+			member.getName(),
+			member.getRole()
 		), refreshToken);
 	}
 
