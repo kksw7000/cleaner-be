@@ -1,38 +1,47 @@
 package com.cleaner.be.auth;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.cleaner.be.auth.dto.LoginRequest;
 import com.cleaner.be.auth.dto.LoginResponse;
-import org.springframework.http.ResponseEntity;
-
 import com.cleaner.be.auth.dto.TokenResponse;
 
-/** 로그인 응답과 Refresh Token 쿠키가 JWT 방식으로 구성되는지 확인합니다. */
+/** JWT 로그인 HTTP 응답과 refresh token 쿠키를 검증합니다. */
 class AuthControllerSessionTest {
 
-	/** 로그인 성공 시 Access Token 응답과 HTTP 전용 Refresh Token 쿠키가 함께 반환되는지 검증합니다. */
+	/** 로그인 성공 시 상태 코드와 회원 이름·권한 JSON을 반환하고 세션 대신 쿠키를 설정합니다. */
 	@Test
-	void loginReturnsJwtTokensInsteadOfCreatingASession() {
+	void loginReturnsJwtTokensInsteadOfCreatingASession() throws Exception {
 		AuthService authService = mock(AuthService.class);
 		JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
 		Member member = mock(Member.class);
-		TokenResponse tokens = new TokenResponse("access", "Bearer", 1800L);
+		TokenResponse tokens = new TokenResponse("access", "Bearer", 1800L, "test-user", Role.USER);
 		LoginRequest request = new LoginRequest("login@example.com", "Password!1");
-		when(authService.login(request)).thenReturn(new LoginResponse(1L, "login@example.com", "name", "01012345678"));
+		when(authService.login(request)).thenReturn(new LoginResponse(1L, "login@example.com", "name"));
 		when(authService.getMember(1L)).thenReturn(member);
-		IssuedTokens issuedTokens = new IssuedTokens(tokens, "refresh");
-		when(tokenProvider.issueTokens(member)).thenReturn(issuedTokens);
+		when(tokenProvider.issueTokens(member)).thenReturn(new IssuedTokens(tokens, "refresh"));
 		when(tokenProvider.getRefreshTokenValiditySeconds()).thenReturn(1209600L);
 
-		ResponseEntity<TokenResponse> response = new AuthController(authService, mock(OAuthService.class), tokenProvider,
-			true, "Strict").login(request);
+		AuthController controller = new AuthController(authService, mock(OAuthService.class), tokenProvider,
+			true, "Strict");
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
-		assertThat(response.getBody()).isEqualTo(tokens);
-		assertThat(response.getHeaders().getFirst("Set-Cookie")).contains("HttpOnly").contains("refresh_token");
+		mockMvc.perform(post("/api/auth/login")
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"email\":\"login@example.com\",\"password\":\"Password!1\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.name").value("test-user"))
+			.andExpect(jsonPath("$.role").value("USER"))
+			.andExpect(cookie().exists("refresh_token"));
 	}
 }
