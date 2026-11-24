@@ -12,7 +12,7 @@ package com.cleaner.be.reservation;
 /** 프론트의 서비스 카테고리 코드와 예약 데이터가 같은 분류 기준을 사용하도록 정의합니다. */
 public enum ServiceCategory {
 	MATTRESS,
-	SOFA_CARPET,
+	FABRIC,
 	MOVE_IN,
 	APPLIANCE,
 	CONSTRUCTION,
@@ -28,7 +28,7 @@ public enum ServiceCategory {
 - `package`는 이 enum의 소속 패키지를 지정합니다.
 - 클래스 위 주석은 프론트와 예약 데이터가 분류 코드를 공유한다는 역할을 설명합니다.
 - `public enum`은 외부 클래스도 사용할 수 있는 고정 선택지 타입을 선언합니다.
-- 각 상수는 허용 서비스 코드입니다. `MATTRESS`는 매트리스, `SOFA_CARPET`은 소파·카펫, `MOVE_IN`은 입주, `APPLIANCE`는 가전, `CONSTRUCTION`은 공사, `COMMERCIAL`은 상업 공간, `WAX_COATING`은 왁스 코팅, `REGULAR_CLEANING`은 정기 청소, `ESTATE_CLEANING`은 유품 정리를 나타냅니다. 이 의미는 코드 이름을 바탕으로 한 해석입니다.
+- 각 상수는 허용 서비스 코드입니다. `MATTRESS`는 매트리스, `FABRIC`은 패브릭·카페트, `MOVE_IN`은 입주, `APPLIANCE`는 가전, `CONSTRUCTION`은 공사, `COMMERCIAL`은 상업 공간, `WAX_COATING`은 왁스 코팅, `REGULAR_CLEANING`은 정기 청소, `ESTATE_CLEANING`은 유품 정리를 나타냅니다.
 - 메서드나 필드는 선언되어 있지 않습니다.
 
 ## 4. 메서드 분석
@@ -48,7 +48,7 @@ public enum ServiceCategory {
 
 ## 7. 이 파일에만 적용되는 개념
 
-enum은 임의 문자열 대신 소스에 선언된 상수만 값으로 허용합니다. 새 분류를 추가하면 API 소비자와 데이터 호환성을 함께 점검해야 합니다. 문자열 저장은 enum 순서가 바뀌어도 숫자 ordinal 저장보다 안전하지만, 상수 이름을 변경하면 저장값과 호환성 문제가 생길 수 있습니다.
+enum은 임의 문자열 대신 소스에 선언된 상수만 값으로 허용합니다. 새 분류를 추가하면 API 소비자와 데이터 호환성을 함께 점검해야 합니다. 문자열 저장은 enum 순서가 바뀌어도 숫자 ordinal 저장보다 안전하지만, 상수 이름을 변경하면 저장값과 호환성 문제가 생길 수 있습니다. 기존 `SOFA_CARPET` 예약 값은 Flyway V8 마이그레이션에서 `FABRIC`으로 변환합니다.
 
 ## 8. 예시
 
