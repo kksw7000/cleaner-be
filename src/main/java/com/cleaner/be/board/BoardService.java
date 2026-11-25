@@ -28,11 +28,14 @@ import com.cleaner.be.board.dto.CommentUpdateRequest;
 public class BoardService {
 
 	private final BoardRepository boardRepository;
+	private final BoardViewRepository boardViewRepository;
 	private final CommentRepository commentRepository;
 	private final MemberRepository memberRepository;
 
-	public BoardService(BoardRepository boardRepository, CommentRepository commentRepository, MemberRepository memberRepository) {
+	public BoardService(BoardRepository boardRepository, BoardViewRepository boardViewRepository,
+		CommentRepository commentRepository, MemberRepository memberRepository) {
 		this.boardRepository = boardRepository;
+		this.boardViewRepository = boardViewRepository;
 		this.commentRepository = commentRepository;
 		this.memberRepository = memberRepository;
 	}
@@ -63,12 +66,16 @@ public class BoardService {
 			boards.getTotalElements(), boards.getTotalPages(), boards.isFirst(), boards.isLast());
 	}
 
-	/** 게시글 상세 정보와 시간순 댓글을 함께 제공하고, 조회 요청마다 조회수를 반영해 열람 횟수를 기록합니다. */
+	/** 상세 조회 시 방문자별 최초 열람에만 조회수를 반영하고 시간순 댓글을 함께 반환합니다. */
 	@Transactional
-	public BoardResponse getBoard(Long boardId) {
-		// 게시글 조회 → 조회수 증가 → 댓글 조회 및 응답 변환 순서로 처리합니다.
-		Board board = findBoard(boardId);
-		board.increaseViewCount();
+	public BoardResponse getBoard(Long boardId, Long memberId, String visitorId) {
+		// 게시글 행 잠금 → 회원 또는 브라우저 방문자 키 결정 → 최초 방문 저장 및 조회수 반영 → 댓글 조회 순서로 처리합니다.
+		Board board = boardRepository.findByIdForViewUpdate(boardId).orElseThrow(BoardNotFoundException::new);
+		String viewerKey = memberId == null ? "visitor:" + visitorId : "member:" + memberId;
+		if (!boardViewRepository.existsByBoardIdAndViewerKey(boardId, viewerKey)) {
+			boardViewRepository.save(new BoardView(boardId, viewerKey));
+			board.increaseViewCount();
+		}
 		List<CommentResponse> comments = commentRepository.findByBoardIdOrderByCreatedAtAsc(boardId).stream()
 			.map(this::toCommentResponse).toList();
 		return toBoardResponse(board, comments);

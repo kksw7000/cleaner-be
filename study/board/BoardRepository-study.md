@@ -98,3 +98,6 @@ DB 접근 계약이며 정렬·권한·DTO 변환은 서비스가 담당합니�
 - 게시판 기준: `cleaner-be/src/main/java/com/cleaner/be/board/`
 - DTO 기준: `cleaner-be/src/main/java/com/cleaner/be/board/dto/`
 - 관련 타입: `cleaner-be/src/main/java/com/cleaner/be/auth/Member.java`, `cleaner-be/src/main/java/com/cleaner/be/common/entity/BaseTimeEntity.java
+
+## 조회수 중복 방지 추가 설명
+`findByIdForViewUpdate(id)`는 `PESSIMISTIC_WRITE` 잠금으로 게시글 행을 읽습니다. BoardService는 이 잠금을 방문 기록 확인과 조회수 변경이 끝날 때까지 유지해 동시 상세 요청의 중복 증가를 방지합니다.

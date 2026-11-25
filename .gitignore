@@ -6,6 +6,7 @@ build/
 !**/src/test/**/build/
 
 .gradle-user-home/
+.gradle-cache/
 *.log
 
 ### STS ###

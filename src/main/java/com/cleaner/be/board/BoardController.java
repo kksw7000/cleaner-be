@@ -11,10 +11,14 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.UUID;
 
 import com.cleaner.be.auth.InvalidCredentialsException;
 import com.cleaner.be.board.dto.BoardCreateRequest;
@@ -57,10 +61,13 @@ public class BoardController {
 		return boardService.getBoards(page, size, keyword);
 	}
 
-	/** 게시글 상세 정보와 댓글을 조회합니다. */
+	/** 게시글 상세 정보와 댓글을 조회하고, 방문자 ID로 중복 조회수 증가를 막습니다. */
 	@GetMapping("/{id}")
-	public BoardResponse getBoard(@PathVariable Long id) {
-		return boardService.getBoard(id);
+	public BoardResponse getBoard(@PathVariable Long id,
+		@RequestHeader(value = "X-Visitor-Id", required = false) String visitorId) {
+		Long memberId = optionalCurrentMemberId();
+		String normalizedVisitorId = memberId == null ? validateVisitorId(visitorId) : null;
+		return boardService.getBoard(id, memberId, normalizedVisitorId);
 	}
 
 	/** 로그인 회원의 권한을 확인하며 게시글을 수정합니다. */
@@ -104,5 +111,30 @@ public class BoardController {
 			throw new InvalidCredentialsException();
 		}
 		return memberId.longValue();
+	}
+
+	/** 비로그인 방문자의 브라우저 식별자가 UUID 형식인지 검사해 방문자 키 오염을 막습니다. */
+	private String validateVisitorId(String visitorId) {
+		if (visitorId == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid X-Visitor-Id is required");
+		}
+		try {
+			UUID parsed = UUID.fromString(visitorId);
+			if (parsed.toString().equalsIgnoreCase(visitorId)) {
+				return parsed.toString();
+			}
+		} catch (IllegalArgumentException exception) {
+			// 잘못된 방문자 식별자는 아래에서 잘못된 요청으로 변환합니다.
+		}
+		throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid X-Visitor-Id is required");
+	}
+
+	/** 선택 인증된 상세 조회에서 로그인 회원 ID를 반환하고, 비로그인 요청은 익명으로 처리합니다. */
+	private Long optionalCurrentMemberId() {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		if (authentication != null && authentication.getPrincipal() instanceof Number memberId) {
+			return memberId.longValue();
+		}
+		return null;
 	}
 }
