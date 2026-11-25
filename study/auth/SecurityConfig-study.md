@@ -94,3 +94,6 @@ Spring Java Configuration, HttpSecurity DSL, SecurityFilterChain, stateless auth
 ## 9. 요약
 
 JWT 인증과 경로별 공개/보호/관리자 접근 규칙을 체인으로 구성합니다.
+
+## CORS 설정 추가 설명
+SecurityFilterChain에서 `CorsConfigurationSource`를 활성화합니다. 허용 origin은 `CORS_ALLOWED_ORIGINS` 환경 변수에서 쉼표로 구분해 읽으며 기본값은 개발 프론트 `http://localhost:3000`입니다. credentials를 허용하면서 정확한 origin만 사용하고, `Authorization`, `Content-Type`, `X-Visitor-Id` 헤더와 필요한 HTTP 메서드를 허용합니다.

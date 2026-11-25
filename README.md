@@ -17,9 +17,12 @@ JWT_REFRESH_COOKIE_SECURE=false
 JWT_REFRESH_COOKIE_SAME_SITE=Lax
 GOOGLE_CLIENT_ID=Google_OAuth_클라이언트_ID
 GOOGLE_CLIENT_SECRET=Google_OAuth_클라이언트_시크릿
+CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
 `JWT_SECRET`은 Base64 형식이어야 하며 디코딩한 값이 최소 32바이트여야 합니다. 로컬 HTTP 환경에서는 refresh 쿠키의 `JWT_REFRESH_COOKIE_SECURE`를 `false`로 설정하고, HTTPS 환경에서는 `true`로 설정합니다. Google OAuth 클라이언트 정보는 Google Cloud Console에서 발급한 값을 사용합니다.
+
+`CORS_ALLOWED_ORIGINS`에는 프론트엔드 origin을 쉼표로 구분해 입력합니다. 배포 환경에서는 실제 프론트엔드 주소로 바꾸며, credentials를 사용하는 요청을 위해 와일드카드(`*`) 대신 정확한 origin을 지정합니다. CORS 허용 헤더에는 JWT `Authorization`과 비로그인 방문자 중복 조회 방지용 `X-Visitor-Id`가 포함됩니다.
 
 ## 백엔드 실행
 

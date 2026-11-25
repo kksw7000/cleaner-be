@@ -195,3 +195,6 @@ JPA 매핑, LAZY 관계, cascade REMOVE, orphanRemoval, dirty checking.
 - 게시판 기준: `cleaner-be/src/main/java/com/cleaner/be/board/`
 - DTO 기준: `cleaner-be/src/main/java/com/cleaner/be/board/dto/`
 - 관련 타입: `cleaner-be/src/main/java/com/cleaner/be/auth/Member.java`, `cleaner-be/src/main/java/com/cleaner/be/common/entity/BaseTimeEntity.java
+
+## 동시 갱신 보호
+`@DynamicUpdate`는 변경된 필드만 UPDATE 문에 포함합니다. 게시글 수정 트랜잭션이 읽은 오래된 조회수를 title/content/notice 변경과 함께 다시 저장해, 동시에 반영된 조회수를 덮어쓰는 일을 막습니다.

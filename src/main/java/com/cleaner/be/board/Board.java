@@ -6,6 +6,8 @@ import java.util.List;
 import com.cleaner.be.auth.Member;
 import com.cleaner.be.common.entity.BaseTimeEntity;
 
+import org.hibernate.annotations.DynamicUpdate;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,6 +21,7 @@ import jakarta.persistence.Table;
 
 /** 자유 게시판의 게시글과 게시글에 종속되는 댓글 컬렉션을 관리합니다. */
 @Entity
+@DynamicUpdate
 @Table(name = "boards")
 public class Board extends BaseTimeEntity {
 
