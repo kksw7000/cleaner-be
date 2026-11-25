@@ -262,3 +262,6 @@ HTTP 어댑터이며 업무 정책을 서비스에 위임합니다.
 - 게시판 기준: `cleaner-be/src/main/java/com/cleaner/be/board/`
 - DTO 기준: `cleaner-be/src/main/java/com/cleaner/be/board/dto/`
 - 관련 타입: `cleaner-be/src/main/java/com/cleaner/be/auth/Member.java`, `cleaner-be/src/main/java/com/cleaner/be/common/entity/BaseTimeEntity.java
+
+## 선택 인증 상세 조회 추가 설명
+GET `/api/boards/{id}`는 `X-Visitor-Id` 헤더를 받을 수 있습니다. JWT가 있으면 SecurityContext의 회원 ID를 사용하고, 비로그인 요청이면 헤더에 정규 UUID가 있는지 확인합니다. 브라우저 방문자 ID가 없거나 형식이 잘못되면 400으로 응답합니다.

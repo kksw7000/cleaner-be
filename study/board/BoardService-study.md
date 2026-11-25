@@ -350,3 +350,6 @@ Controller→Service→Repository. 목록은 공지 우선·최신순으로 페�
 - 게시판 기준: `cleaner-be/src/main/java/com/cleaner/be/board/`
 - DTO 기준: `cleaner-be/src/main/java/com/cleaner/be/board/dto/`
 - 관련 타입: `cleaner-be/src/main/java/com/cleaner/be/auth/Member.java`, `cleaner-be/src/main/java/com/cleaner/be/common/entity/BaseTimeEntity.java
+
+## 조회수 중복 방지 추가 설명
+상세 조회는 `getBoard(boardId, memberId, visitorId)`로 호출합니다. 로그인 회원은 `member:<회원 ID>`, 비로그인 회원은 `visitor:<브라우저 UUID>`를 방문자 키로 사용합니다. 게시글 행을 비관적 쓰기 잠금으로 읽은 뒤 방문 기록을 확인하고, 최초 방문일 때만 `BoardView`를 저장하며 `viewCount`를 증가시킵니다. 잠금과 방문 기록 저장은 같은 트랜잭션에서 처리해 동일 게시글의 동시 재요청도 직렬화합니다.

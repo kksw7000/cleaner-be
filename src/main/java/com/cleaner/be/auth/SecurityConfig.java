@@ -1,8 +1,15 @@
 package com.cleaner.be.auth;
 
+import java.util.Arrays;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -21,9 +28,11 @@ public class SecurityConfig {
 
 	/** URL별 인가 규칙과 JWT 필터를 하나의 무상태 보안 체인으로 구성합니다. */
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter,
+		CorsConfigurationSource corsConfigurationSource) throws Exception {
 		return http
 			.csrf(csrf -> csrf.disable())
+			.cors(cors -> cors.configurationSource(corsConfigurationSource))
 			// 인증 상태를 서버 세션에 저장하지 않고 요청마다 Access Token으로 다시 확인합니다.
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(authorize -> authorize
@@ -50,5 +59,22 @@ public class SecurityConfig {
 			// 기본 아이디/비밀번호 필터보다 먼저 JWT를 해석해야 인가 단계에서 회원 정보를 사용할 수 있습니다.
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 			.build();
+	}
+
+	/** 프론트엔드 출처와 JWT·방문자 식별 헤더를 허용해 교차 출처 API 요청을 처리합니다. */
+	@Bean
+	CorsConfigurationSource corsConfigurationSource(@Value("${cors.allowed-origins:http://localhost:3000}") String allowedOrigins) {
+		CorsConfiguration configuration = new CorsConfiguration();
+		List<String> origins = Arrays.stream(allowedOrigins.split(","))
+			.map(String::trim).filter(origin -> !origin.isEmpty()).toList();
+		configuration.setAllowedOrigins(origins);
+		configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Visitor-Id"));
+		configuration.setAllowCredentials(true);
+		configuration.setMaxAge(3600L);
+
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", configuration);
+		return source;
 	}
 }
